@@ -1,0 +1,44 @@
+allow-lan: true
+find-process-mode: off
+enable-process: false
+unified-delay: true
+inbound-tfo: true
+inbound-mptcp: true
+log-level: info
+ipv6: true
+tcp-concurrent: true
+profile:
+  store-selected: false
+  store-fake-ip: false
+dns:
+  enable: true
+  prefer-h3: false
+  ipv6: true
+  use-hosts: true
+  enhanced-mode: redir-host
+  default-nameserver:
+    ["https://223.6.6.6/dns-query", "https://120.53.53.53/dns-query"]
+  proxy-server-nameserver:
+    ["https://223.6.6.6/dns-query", "https://120.53.53.53/dns-query"]
+  nameserver: ["https://223.6.6.6/dns-query", "https://120.53.53.53/dns-query"]
+rules:
+  - "MATCH,proxy"
+  - "MATCH,REJECT"
+# proxy-groups:
+#   - name: "proxy"
+#     type: select
+#     proxies: ["1"]
+# proxies:
+#   - { name: "1", server: 127.0.0.1, port: 80, type: http }
+
+# listeners:
+#   - {
+#       name: mixed-in-1,
+#       type: mixed,
+#       port: 65534,
+#       listen: 0.0.0.0,
+#       proxy: "1",
+#       udp: true,
+#     }
+# external-controller: "0.0.0.0:65535"
+# bind-address: 0.0.0.0
