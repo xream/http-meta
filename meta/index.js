@@ -118,7 +118,7 @@ async function genConfig(input) {
 
   const yaml = YAML.parse(fs.readFileSync(tpl, 'utf8'))
 
-  yaml['bind-address'] = `0.0.0.0`
+  // yaml['bind-address'] = `0.0.0.0`
   // yaml['external-controller'] = `${yaml['bind-address']}:${port}`
 
   yaml.proxies = _.map(proxies, (p, index) => {

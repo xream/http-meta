@@ -1,3 +1,4 @@
+bind-address: 0.0.0.0
 allow-lan: true
 find-process-mode: off
 enable-process: false
