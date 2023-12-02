@@ -4,6 +4,8 @@
 
 Download [Meta](https://github.com/MetaCubeX/mihomo/releases), rename it to `http-meta` and move it to the `meta` folder.
 
+Edit `meta/tpl.yaml` if necessary.
+
 `pnpm i`
 
 `HOST=127.0.0.1 PORT=9876 pnpm start`

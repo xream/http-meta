@@ -1,17 +1,17 @@
-const shell = require('shelljs')
 const YAML = require('yamljs')
 const fs = require('fs')
 const path = require('path')
 const _ = require('lodash')
 const { findAvailablePorts } = require('../utils/port')
+const { safeExecSync } = require('../utils/shell')
 
 const processes = {}
 
 const folder = __dirname
-const bin = path.join(__dirname, 'http-meta')
-const tpl = path.join(__dirname, 'tpl.yaml')
-const config = path.join(__dirname, 'config.yaml')
-const log = path.join(__dirname, 'http-meta.log')
+const bin = path.join(folder, 'http-meta')
+const tpl = path.join(folder, 'tpl.yaml')
+const config = path.join(folder, 'config.yaml')
+const log = path.join(folder, 'http-meta.log')
 
 module.exports = {
   start,
@@ -28,14 +28,15 @@ async function restart(input) {
   return info
 }
 async function start(input) {
-  shell.exec(`rm -f ${config}`)
-  shell.exec(`mv ${log} ${log}.old > /dev/null 2>&1`)
+  safeExecSync(`rm -f ${config}`)
+  safeExecSync(`mv ${log} ${log}.old > /dev/null 2>&1`)
 
   const info = await genConfig(input)
 
-  shell.exec(`chmod a+x ${bin}`)
+  safeExecSync(`chmod a+x ${bin}`)
 
-  let pid = shell.exec(`${bin} -d ${folder} -f ${config} > ${log} 2>&1 &\necho $!`, { silent: true }).stdout.trim()
+  let pid = safeExecSync(`${bin} -d ${folder} -f ${config} > ${log} 2>&1 &\necho $!`).trim()
+  console.log(`pid`, pid)
   if (pid) {
     pid = _.toInteger(pid)
 
@@ -55,10 +56,9 @@ async function stop(_pid) {
     let _pids = _.isArray(_pid) ? _pid : [_pid]
     pid = []
     _.map(_pids, i => {
-      shell.exec(`kill -9 ${i}`, { silent: true })
-      const stdout = shell
-        .exec(`ps -p ${i}`, { silent: true })
-        .stdout.trim()
+      safeExecSync(`kill -9 ${i}`)
+      const stdout = safeExecSync(`ps -p ${i}`)
+        .trim()
         .split(/[\r\n]+/)
         .map(i => i.trim())
         .filter(i => i.length)
@@ -68,10 +68,10 @@ async function stop(_pid) {
       }
     })
   } else {
-    shell.exec(`pkill http-meta`)
+    safeExecSync(`pkill http-meta`)
     pid = await getPID()
     if (pid) {
-      shell.exec(`kill -9 ${pid}`)
+      safeExecSync(`kill -9 ${pid}`)
     }
     pid = await getPID()
   }
@@ -81,7 +81,7 @@ async function stop(_pid) {
   return { pid }
 }
 async function getPID(_pid) {
-  let pid = shell.exec(`pgrep http-meta`, { silent: true }).stdout.trim()
+  let pid = safeExecSync(`pgrep http-meta`).trim()
 
   pid = pid
     ? _.chain(pid)
@@ -154,8 +154,7 @@ async function genConfig(input) {
 function getStats(pid) {
   const command = `ps -p ${pid} -o rss,pcpu`
 
-  const output = shell.exec(command, { silent: true }).stdout
-
+  const output = safeExecSync(command)
   const lines = output.trim().split('\n')
   const values = lines[1].trim().split(/\s+/)
   const mem = _.toNumber(values[0])
