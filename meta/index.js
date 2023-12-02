@@ -99,7 +99,20 @@ async function getPID(_pid) {
   return pid
 }
 async function genConfig(input) {
-  const proxies = _.get(input, 'proxies') || input
+  let proxies = _.get(input, 'proxies')
+  if (!_.isArray(proxies) || _.isEmpty(proxies)) {
+    try {
+      proxies = _.get(YAML.parse(proxies), 'proxies')
+    } catch (e) {}
+  }
+  if (!_.isArray(proxies) || _.isEmpty(proxies)) {
+    try {
+      proxies = _.get(YAML.parse(input), 'proxies')
+    } catch (e) {}
+  }
+  if (!_.isArray(proxies) || _.isEmpty(proxies)) {
+    throw new Error(`empty proxies`)
+  }
   // const [port, ...ports] = await findAvailablePorts(65535, 1, proxies.length + 1)
   const ports = await findAvailablePorts(65535, 1, proxies.length)
 
