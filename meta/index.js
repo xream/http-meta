@@ -5,6 +5,8 @@ const path = require('path')
 const _ = require('lodash')
 const { findAvailablePorts } = require('../utils/port')
 
+const processes = {}
+
 const folder = __dirname
 const bin = path.join(__dirname, 'http-meta')
 const tpl = path.join(__dirname, 'tpl.yaml')
@@ -16,7 +18,8 @@ module.exports = {
   stop,
   restart,
   getPID,
-  getProcessStats,
+  getStats,
+  startCheck,
 }
 
 async function restart(input) {
@@ -34,16 +37,24 @@ async function start(input) {
 
   let pid = shell.exec(`${bin} -d ${folder} -f ${config} > ${log} 2>&1 &\necho $!`, { silent: true }).stdout.trim()
   if (pid) {
-    info.pid = _.toInteger(pid)
+    pid = _.toInteger(pid)
+
+    processes[pid] = {
+      startTime: new Date(),
+      timeout: input.timeout || 30 * 60 * 1000,
+    }
+
+    info.pid = pid
   }
 
   return info
 }
 async function stop(_pid) {
   let pid
-  if (_pid) {
+  if (!_.isEmpty(_pid)) {
+    let _pids = _.isArray(_pid) ? _pid : [_pid]
     pid = []
-    _.map(_pid, i => {
+    _.map(_pids, i => {
       shell.exec(`kill -9 ${i}`, { silent: true })
       const stdout = shell
         .exec(`ps -p ${i}`, { silent: true })
@@ -81,18 +92,21 @@ async function getPID(_pid) {
         .value()
     : null
   if (!_.isEmpty(_pid)) {
-    return _.intersection(pid, _pid)
+    let _pids = _.isArray(_pid) ? _pid : [_pid]
+    _pids = _.map(_pids, i => _.toInteger(i))
+    return _.intersection(pid, _pids)
   }
   return pid
 }
 async function genConfig(input) {
   const proxies = _.get(input, 'proxies') || input
-  const [port, ...ports] = await findAvailablePorts(65535, 1, proxies.length + 1)
+  // const [port, ...ports] = await findAvailablePorts(65535, 1, proxies.length + 1)
+  const ports = await findAvailablePorts(65535, 1, proxies.length)
 
   const yaml = YAML.parse(fs.readFileSync(tpl, 'utf8'))
 
   yaml['bind-address'] = `0.0.0.0`
-  yaml['external-controller'] = `${yaml['bind-address']}:${port}`
+  // yaml['external-controller'] = `${yaml['bind-address']}:${port}`
 
   yaml.proxies = _.map(proxies, (p, index) => {
     return { ...p, name: `proxy-${index}` }
@@ -120,11 +134,11 @@ async function genConfig(input) {
 
   return {
     ports,
-    port,
+    // port,
   }
 }
 
-function getProcessStats(pid) {
+function getStats(pid) {
   const command = `ps -p ${pid} -o rss,pcpu`
 
   const output = shell.exec(command, { silent: true }).stdout
@@ -136,5 +150,41 @@ function getProcessStats(pid) {
   return {
     mem,
     cpu,
+    err: _.get(processes, `${pid}.err`),
   }
+}
+function startCheck() {
+  setInterval(async () => {
+    for (const pid of Object.keys(processes)) {
+      let { startTime, timeout, notExistCount = 0 } = processes[pid]
+
+      const _pid = await getPID(pid)
+      if (_.isEmpty(_pid)) {
+        notExistCount += 1
+        if (notExistCount > 2) {
+          console.log(`PID ${pid} is not exist, delete it`, notExistCount)
+          delete processes[pid]
+        } else {
+          console.log(`PID ${pid} is not exist`, notExistCount)
+          processes[pid].notExistCount = notExistCount
+        }
+      } else {
+        if (new Date() - startTime >= timeout) {
+          console.log(
+            `stop PID ${pid}, ${_.round((new Date() - startTime) / 1000 / 60, 2)}m >= ${_.round(
+              timeout / 1000 / 60,
+              2
+            )}m`
+          )
+          try {
+            await stop(pid)
+            delete processes[pid]
+          } catch (e) {
+            console.error(e)
+            processes[pid].err = e
+          }
+        }
+      }
+    }
+  }, 60 * 1000)
 }

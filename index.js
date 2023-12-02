@@ -40,8 +40,13 @@ router.post('/stats', async (ctx, next) => {
     const pid = await meta.getPID(ctx.request.body.pid)
     const stats = {}
     _.map(pid, i => {
-      const { mem, cpu } = meta.getProcessStats(pid)
-      stats[i] = { pid: i, mem: `${(_.round(mem / 1024), 2)}MB`, cpu: `${_.round(cpu, 2)}%` }
+      const { mem, cpu, err } = meta.getStats(pid)
+      stats[i] = {
+        pid: i,
+        mem: `${(_.round(mem / 1024), 2)}MB`,
+        cpu: `${_.round(cpu, 2)}%`,
+        err: err ? _.get(err, 'message') || String(err) : undefined,
+      }
     })
     ctx.body = stats
   } catch (e) {
@@ -54,4 +59,5 @@ app.use(router.routes()).use(router.allowedMethods())
 const listener = app.listen(PORT, HOST, async ctx => {
   const { address, port } = listener.address()
   console.log(`http listening on port ${address}:${port}`)
+  await meta.startCheck()
 })

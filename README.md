@@ -14,6 +14,7 @@ Download [Meta](https://github.com/MetaCubeX/mihomo/releases), rename it to `htt
 curl --location '127.0.0.1:9876/start' \
 --header 'Content-Type: application/json' \
 --data '{
+    "timeout": 1800000, // process will be killed after 30 minutes(default)
     "proxies": [
         {
             "name": "1",
@@ -44,6 +45,7 @@ curl --location '127.0.0.1:9876/start' \
 curl --location '127.0.0.1:9876/start' \
 --header 'Content-Type: application/json' \
 --data '{
+    "timeout": 1800000, // process will be killed after 30 minutes(default)
     "proxies": [
         {
             "name": "1",
