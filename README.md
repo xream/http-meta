@@ -1,5 +1,13 @@
 # HTTP META
 
+## 社群
+
+👏🏻 欢迎加入社群进行交流讨论
+
+👥 群组 [折腾啥(群组)](https://t.me/zhetengsha_group)
+
+📢 频道 [折腾啥(频道)](https://t.me/zhetengsha)
+
 ## Usage
 
 ## The Easy Way(for example, on an Android device)
