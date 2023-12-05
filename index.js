@@ -59,6 +59,6 @@ app.use(router.routes()).use(router.allowedMethods())
 
 const listener = app.listen(PORT, HOST, async ctx => {
   const { address, port } = listener.address()
-  console.log(`http listening on port ${address}:${port}`)
+  console.log(`[HTTP SERVER] listening on port ${address}:${port}\n`)
   await meta.startCheck()
 })

@@ -2,11 +2,9 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 
-const tempDir = os.tmpdir()
+const dataFile = path.join(os.tmpdir(), 'http-meta.json')
 
-const dataFile = path.join(tempDir, 'http-meta.json')
-
-console.log(`Data file: "${dataFile}"`)
+console.log(`[DATA FILE] "${dataFile}"`)
 
 module.exports = {
   read,

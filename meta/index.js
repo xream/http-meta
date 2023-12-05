@@ -3,6 +3,8 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 const _ = require('lodash')
+const { alphanumeric } = require('nanoid-dictionary')
+
 const { findAvailablePorts } = require('../utils/port')
 const { safeExecSync } = require('../utils/shell')
 const dataFile = require('../utils/data')
@@ -16,7 +18,7 @@ const tpl = path.join(folder, 'tpl.yaml')
 
 try {
   fs.accessSync(folder)
-  console.log(`Meta folder: "${folder}"`)
+  console.log(`[META FOLDER] ${folder}`)
 } catch (e) {
   console.log(
     `Meta folder "${folder}" does not exist. This can be customized using the environment variable "META_FOLDER"`
@@ -25,21 +27,18 @@ try {
 }
 try {
   fs.accessSync(bin)
-  console.log(`Meta Core: "${bin}"`)
+  console.log(`[META CORE] ${bin}`)
 } catch (e) {
   console.log(`Meta Core "${bin}" does not exist`)
   process.exit(1)
 }
 try {
   fs.accessSync(tpl)
-  console.log(`Meta Config Template: "${tpl}"`)
+  console.log(`[META CONFIG TEMPLATE] ${tpl}`)
 } catch (e) {
   console.log(`Meta Config Template "${tpl}" does not exist`)
   process.exit(1)
 }
-
-const config = path.join(folder, 'http-meta.config.yaml')
-const log = path.join(folder, 'http-meta.log')
 
 module.exports = {
   start,
@@ -56,37 +55,53 @@ async function restart(input) {
   return info
 }
 async function start(input) {
-  safeExecSync(`rm -f ${config}`)
-  safeExecSync(`mv ${log} ${log}.old > /dev/null 2>&1`)
+  const { customAlphabet } = await import('nanoid')
 
-  const info = await genConfig(input)
+  const id = customAlphabet(alphanumeric)()
+  const config = path.join(os.tmpdir(), `http-meta.${id}.yaml`)
+  const log = path.join(os.tmpdir(), `http-meta.${id}.log`)
+
+  const info = await genConfig(input, config)
 
   safeExecSync(`chmod a+x ${bin}`)
 
   let pid = safeExecSync(`${bin} -d ${folder} -f ${config} > ${log} 2>&1 &\necho $!`).trim()
-  console.log(`pid`, pid)
+
   if (pid) {
     pid = _.toInteger(pid)
-
+    info.pid = pid
     processes[pid] = {
+      config,
+      log,
       startTime: Date.now(),
       timeout: input.timeout || 30 * 60 * 1000,
       ...info,
     }
     dataFile.write({ ...data, processes })
 
-    info.pid = pid
+    console.log(`[META] STARTED\n[PID] ${pid}\n[CONFIG] ${config}\n[LOG] ${log}\n`)
   }
 
   return info
 }
 async function stop(_pid) {
   let pid
-  if (!_.isEmpty(_pid)) {
+  if (_.isArray(_pid) ? !_.isEmpty(_pid) : _pid) {
     let _pids = _.isArray(_pid) ? _pid : [_pid]
     pid = []
     _.map(_pids, i => {
+      const config = _.get(processes, `${i}.config`)
+      const log = _.get(processes, `${i}.log`)
+
+      if (config) {
+        safeExecSync(`rm -f ${config}`)
+      }
+      if (log) {
+        safeExecSync(`rm -f ${log}`)
+      }
+
       safeExecSync(`kill -9 ${i}`)
+
       const stdout = safeExecSync(`ps -p ${i}`)
         .trim()
         .split(/[\r\n]+/)
@@ -95,13 +110,21 @@ async function stop(_pid) {
 
       if (_.chain(stdout).get(1).startsWith(`${i}`).value()) {
         pid.push(i)
+      } else {
+        console.log(`[META] STOPPED\n[PID] ${i}\n[CONFIG] ${config}\n[LOG] ${log}\n`)
+        delete processes[i]
+        dataFile.write({ ...data, processes })
       }
     })
   } else {
+    safeExecSync(`rm -f ${path.join(os.tmpdir(), `http-meta.*.log`)}`)
+    safeExecSync(`rm -f ${path.join(os.tmpdir(), `http-meta.*.yaml`)}`)
     safeExecSync(`pkill http-meta`)
     pid = await getPID()
-    if (pid) {
-      safeExecSync(`kill -9 ${pid}`)
+    if (!_.isEmpty(pid)) {
+      _.map(pid, i => {
+        safeExecSync(`kill -9 ${i}`)
+      })
     }
     pid = await getPID()
   }
@@ -128,7 +151,7 @@ async function getPID(_pid) {
   }
   return pid
 }
-async function genConfig(input) {
+async function genConfig(input, config) {
   let proxies = _.get(input, 'proxies')
   if (!_.isArray(proxies) || _.isEmpty(proxies)) {
     try {
@@ -202,37 +225,41 @@ function getStats(pid) {
 }
 function startCheck() {
   setInterval(async () => {
-    for (const pid of Object.keys(processes)) {
-      let { startTime, timeout, notExistCount = 0 } = processes[pid]
+    let pids = (await getPID()) || []
+    _.map(processes, (v, k) => {
+      if (!_.includes(pids, _.toInteger(k))) {
+        console.log(`[INTERVAL] remove PID ${k}`)
+        delete processes[k]
+      }
+    })
+    dataFile.write({ ...data, processes })
 
-      const _pid = await getPID(pid)
-      if (_.isEmpty(_pid)) {
-        notExistCount += 1
-        if (notExistCount > 1) {
-          console.log(`PID ${pid} is not exist, delete it`, notExistCount)
-          delete processes[pid]
-          dataFile.write({ ...data })
+    if (!_.isEmpty(pids)) {
+      console.log(`[INTERVAL] check PID: ${pids}`)
+      for (const pid of pids) {
+        const process = processes[pid]
+        if (process) {
+          let { startTime, timeout } = process
+          if (Date.now() - startTime >= timeout) {
+            console.log(
+              `[INTERVAL] kill PID ${pid}, ${_.round((Date.now() - startTime) / 1000 / 60, 2)}m >= ${_.round(
+                timeout / 1000 / 60,
+                2
+              )}m`
+            )
+            try {
+              await stop(pid)
+            } catch (e) {
+              console.error(e)
+              processes[pid].err = e
+              dataFile.write({ ...data, processes })
+            }
+          }
         } else {
-          console.log(`PID ${pid} is not exist`, notExistCount)
-          processes[pid].notExistCount = notExistCount
-          dataFile.write({ ...data })
-        }
-      } else {
-        if (Date.now() - startTime >= timeout) {
-          console.log(
-            `stop PID ${pid}, ${_.round((Date.now() - startTime) / 1000 / 60, 2)}m >= ${_.round(
-              timeout / 1000 / 60,
-              2
-            )}m`
-          )
-          try {
-            await stop(pid)
-            delete processes[pid]
-            dataFile.write({ ...data })
-          } catch (e) {
-            console.error(e)
-            processes[pid].err = e
-            dataFile.write({ ...data })
+          console.log(`[INTERVAL] unrecorded PID ${pid}`)
+          processes[pid] = {
+            startTime: Date.now(),
+            timeout: 30 * 60 * 1000,
           }
         }
       }

@@ -4,6 +4,8 @@
 		"koa": "^2.14.2",
 		"koa-bodyparser": "^4.4.1",
 		"lodash": "^4.17.21",
+		"nanoid": "^5.0.4",
+		"nanoid-dictionary": "^4.3.0",
 		"yamljs": "^0.3.0"
 	},
 	"devDependencies": {

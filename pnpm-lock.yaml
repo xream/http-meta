@@ -17,6 +17,12 @@ dependencies:
   lodash:
     specifier: ^4.17.21
     version: registry.npmmirror.com/lodash@4.17.21
+  nanoid:
+    specifier: ^5.0.4
+    version: registry.npmmirror.com/nanoid@5.0.4
+  nanoid-dictionary:
+    specifier: ^4.3.0
+    version: registry.npmmirror.com/nanoid-dictionary@4.3.0
   yamljs:
     specifier: ^0.3.0
     version: registry.npmmirror.com/yamljs@0.3.0
@@ -1372,6 +1378,20 @@ packages:
     resolution: {integrity: sha512-sGkPx+VjMtmA6MX27oA4FBFELFCZZ4S4XqeGOXCv68tT+jb3vk/RyaKWP0PTKyWtmLSM0b+adUTEvbs1PEaH2w==, registry: http://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/ms/-/ms-2.1.2.tgz}
     name: ms
     version: 2.1.2
+
+  registry.npmmirror.com/nanoid-dictionary@4.3.0:
+    resolution: {integrity: sha512-Xw1+/QnRGWO1KJ0rLfU1xR85qXmAHyLbE3TUkklu9gOIDburP6CsUnLmTaNECGpBh5SHb2uPFmx0VT8UPyoeyw==, registry: http://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/nanoid-dictionary/-/nanoid-dictionary-4.3.0.tgz}
+    name: nanoid-dictionary
+    version: 4.3.0
+    dev: false
+
+  registry.npmmirror.com/nanoid@5.0.4:
+    resolution: {integrity: sha512-vAjmBf13gsmhXSgBrtIclinISzFFy22WwCYoyilZlsrRXNIHSwgFQ1bEdjRwMT3aoadeIF6HMuDRlOxzfXV8ig==, registry: http://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/nanoid/-/nanoid-5.0.4.tgz}
+    name: nanoid
+    version: 5.0.4
+    engines: {node: ^18 || >=20}
+    hasBin: true
+    dev: false
 
   registry.npmmirror.com/negotiator@0.6.3:
     resolution: {integrity: sha512-+EUsqGPLsM+j/zdChZjsnX51g4XrHFOIXwfnCVPGlQk/k5giakcKsuxCObBRu6DSm9opw/O6slWbJdghQM4bBg==, registry: http://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/negotiator/-/negotiator-0.6.3.tgz}
