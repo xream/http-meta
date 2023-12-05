@@ -1,0 +1,51 @@
+name: build
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "package.json"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "package.json"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: "main"
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "16"
+      - name: Install dependencies
+        run: |
+          npm install -g pnpm
+          pnpm i
+      - name: Bundle
+        run: |
+          pnpm run bundle
+      - id: tag
+        name: Generate release tag
+        run: |
+          HTTP_META_RELEASE=`node --eval="process.stdout.write(require('./package.json').version)"`
+          echo "release_tag=$HTTP_META_RELEASE" >> $GITHUB_OUTPUT
+      - name: Prepare release
+        run: |
+          pnpm run changelog
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          body_path: CHANGELOG.md
+          tag_name: ${{ steps.tag.outputs.release_tag }}
+          files: |
+            meta/tpl.yaml
+            dist/http-meta.bundle.js
+            dist/http-meta.bundle.js.map
