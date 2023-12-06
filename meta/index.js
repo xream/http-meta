@@ -47,6 +47,7 @@ module.exports = {
   getPID,
   getStats,
   startCheck,
+  test,
 }
 
 async function restart(input) {
@@ -70,9 +71,9 @@ async function start(input) {
   if (pid) {
     pid = _.toInteger(pid)
     info.pid = pid
+    info.config = config
+    info.log = log
     processes[pid] = {
-      config,
-      log,
       startTime: Date.now(),
       timeout: input.timeout || 30 * 60 * 1000,
       ...info,
@@ -223,6 +224,44 @@ function getStats(pid) {
     err: _.get(processes, `${pid}.err`),
   }
 }
+async function test() {
+  let log
+  let config
+  let error
+  let _pid
+  try {
+    const {
+      pid,
+      log: logFile,
+      config: configFile,
+    } = await start({
+      timeout: 60 * 60 * 1000,
+      proxies: [{ name: 'test', type: 'http', server: '127.0.0.1', port: 80 }],
+    })
+    await new Promise(r => setTimeout(r, 2 * 1000))
+    _pid = _.get(await getPID(pid), 0)
+    try {
+      log = fs.readFileSync(logFile, 'utf8')
+    } catch (e) {}
+    try {
+      config = fs.readFileSync(configFile, 'utf8')
+    } catch (e) {}
+    try {
+      await stop(pid)
+    } catch (e) {}
+  } catch (e) {
+    error = _.get(e, 'message') || String(e)
+    console.error(`[META] TEST ERROR`, e)
+    try {
+      log = fs.readFileSync(logFile, 'utf8')
+    } catch (e) {}
+    try {
+      config = fs.readFileSync(configFile, 'utf8')
+    } catch (e) {}
+  }
+  return { error, pid: _pid, log, config }
+}
+
 function startCheck() {
   setInterval(async () => {
     let pids = (await getPID()) || []

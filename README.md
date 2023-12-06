@@ -44,6 +44,22 @@ Download [Meta](https://github.com/MetaCubeX/mihomo/releases), rename it to `htt
 
 `META_FOLDER=/data/http-meta/meta HOST=127.0.0.1 PORT=9876 pnpm start`
 
+## Test
+
+```console
+curl '127.0.0.1:9876/test'
+```
+
+### Response
+
+```JSON
+{
+    "pid": 35955,
+    "log":"INFO Mixed(http+socks)[listener-proxy-0] proxy listening at: [::]:65535",
+    "config": "bind-address: 0.0.0.0\nallow-lan: true"
+}
+```
+
 ## Start (always start a new one)
 
 ```console

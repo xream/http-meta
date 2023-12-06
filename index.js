@@ -35,6 +35,13 @@ router.post('/stop', async (ctx, next) => {
     ctx.throw(400, e)
   }
 })
+router.get('/test', async (ctx, next) => {
+  try {
+    ctx.body = await meta.test()
+  } catch (e) {
+    ctx.throw(400, e)
+  }
+})
 router.post('/stats', async (ctx, next) => {
   try {
     const pid = await meta.getPID(ctx.request.body.pid)
