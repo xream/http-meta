@@ -35,16 +35,12 @@ jobs:
         run: |
           HTTP_META_RELEASE=`node --eval="process.stdout.write(require('./package.json').version)"`
           echo "release_tag=$HTTP_META_RELEASE" >> $GITHUB_OUTPUT
-      - name: Prepare release
-        run: |
-          pnpm run changelog
       - name: Release
         uses: softprops/action-gh-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        if: ${{ success() }}
         with:
-          body_path: CHANGELOG.md
           tag_name: ${{ steps.tag.outputs.release_tag }}
+          generate_release_notes: true
           files: |
             meta/tpl.yaml
             dist/http-meta.bundle.js
