@@ -16,7 +16,6 @@
 	"version": "1.0.0",
 	"main": "index.js",
 	"scripts": {
-		"changelog": "conventional-changelog -p cli -i CHANGELOG.md -s",
 		"bundle": "node bundle.js",
 		"start": "node index.js",
 		"dev": "nodemon index.js -e js"
