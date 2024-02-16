@@ -10,6 +10,8 @@
 
 ## Usage
 
+> ⚠️ If a proxy is already running on the device running `http-meta`, you may need to exclude the `http-meta` process.
+
 ## The Easy Way(for example, on an Android device)
 
 Create a folder `/data/http-meta`
