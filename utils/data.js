@@ -2,7 +2,8 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 
-const dataFile = path.join(os.tmpdir(), 'http-meta.json')
+const folder = path.resolve(process.env.META_TEMP_FOLDER || os.tmpdir())
+const dataFile = path.join(folder, 'http-meta.json')
 
 console.log(`[DATA FILE] "${dataFile}"`)
 
