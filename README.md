@@ -26,7 +26,9 @@ Download [tpl.yaml](https://github.com/xream/http-meta/releases/latest/download/
 
 > `META_FOLDER` can be the absolute path of the `meta` folder if neccessary.
 
-`META_FOLDER=/data/http-meta/meta HOST=127.0.0.1 PORT=9876 node http-meta.bundle.js`
+> `META_TEMP_FOLDER` can be the absolute path of the temp folder if neccessary. Defaults to the default directory for temporary files of the operating system. This path may have to be provided in the Android environment.
+
+`META_TEMP_FOLDER=/data/http-meta META_FOLDER=/data/http-meta/meta HOST=127.0.0.1 PORT=9876 node http-meta.bundle.js`
 
 ## The Hard Way
 
@@ -44,7 +46,9 @@ Download [Meta](https://github.com/MetaCubeX/mihomo/releases), rename it to `htt
 
 > `META_FOLDER` can be the absolute path of the `meta` folder if neccessary.
 
-`META_FOLDER=/data/http-meta/meta HOST=127.0.0.1 PORT=9876 pnpm start`
+> `META_TEMP_FOLDER` can be the absolute path of the temp folder if neccessary. Defaults to the default directory for temporary files of the operating system. This path may have to be provided in the Android environment.
+
+`META_TEMP_FOLDER=/data/http-meta META_FOLDER=/data/http-meta/meta HOST=127.0.0.1 PORT=9876 pnpm start`
 
 ## Test
 

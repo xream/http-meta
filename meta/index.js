@@ -9,6 +9,7 @@ const { findAvailablePorts } = require('../utils/port')
 const { safeExecSync } = require('../utils/shell')
 const dataFile = require('../utils/data')
 
+const tempFolder = path.resolve(process.env.META_TEMP_FOLDER || os.tmpdir())
 const data = dataFile.read()
 const processes = _.get(data, 'processes', {})
 
@@ -59,8 +60,8 @@ async function start(input) {
   const { customAlphabet } = await import('nanoid')
 
   const id = customAlphabet(alphanumeric)()
-  const config = path.join(os.tmpdir(), `http-meta.${id}.yaml`)
-  const log = path.join(os.tmpdir(), `http-meta.${id}.log`)
+  const config = path.join(tempFolder, `http-meta.${id}.yaml`)
+  const log = path.join(tempFolder, `http-meta.${id}.log`)
 
   const info = await genConfig(input, config)
 
@@ -118,8 +119,8 @@ async function stop(_pid) {
       }
     })
   } else {
-    safeExecSync(`rm -f ${path.join(os.tmpdir(), `http-meta.*.log`)}`)
-    safeExecSync(`rm -f ${path.join(os.tmpdir(), `http-meta.*.yaml`)}`)
+    safeExecSync(`rm -f ${path.join(tempFolder, `http-meta.*.log`)}`)
+    safeExecSync(`rm -f ${path.join(tempFolder, `http-meta.*.yaml`)}`)
     safeExecSync(`pkill http-meta`)
     pid = await getPID()
     if (!_.isEmpty(pid)) {
