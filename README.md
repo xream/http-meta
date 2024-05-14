@@ -50,6 +50,12 @@ Download [Meta](https://github.com/MetaCubeX/mihomo/releases), rename it to `htt
 
 `META_TEMP_FOLDER=/data/http-meta META_FOLDER=/data/http-meta/meta HOST=127.0.0.1 PORT=9876 pnpm start`
 
+## Authorization
+
+Set the `AUTHORIZATION` environment variable to enable authorization.
+
+Add the `Authorization` header to the request.
+
 ## Test
 
 ```console
