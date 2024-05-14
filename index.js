@@ -1,5 +1,6 @@
 const PORT = process.env.PORT || 9876
 const HOST = process.env.HOST || '::'
+const AUTHORIZATION = process.env.AUTHORIZATION || ''
 
 const _ = require('lodash')
 const Koa = require('koa')
@@ -11,6 +12,13 @@ const app = new Koa()
 const router = new Router()
 
 app.use(bodyParser())
+if (AUTHORIZATION) {
+  console.log(`Authorization Enabled`)
+  app.use(async (ctx, next) => {
+    if (ctx.get('authorization') !== AUTHORIZATION) return ctx.throw(401)
+    return next()
+  })
+}
 
 router.post('/restart', async (ctx, next) => {
   try {
