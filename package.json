@@ -6,6 +6,7 @@
 		"lodash": "^4.17.21",
 		"nanoid": "^5.0.4",
 		"nanoid-dictionary": "^4.3.0",
+		"socks": "^2.8.3",
 		"yamljs": "^0.3.0"
 	},
 	"devDependencies": {

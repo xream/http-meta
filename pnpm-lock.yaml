@@ -23,6 +23,9 @@ dependencies:
   nanoid-dictionary:
     specifier: ^4.3.0
     version: registry.npmmirror.com/nanoid-dictionary@4.3.0
+  socks:
+    specifier: ^2.8.3
+    version: registry.npmmirror.com/socks@2.8.3
   yamljs:
     specifier: ^0.3.0
     version: registry.npmmirror.com/yamljs@0.3.0
@@ -764,6 +767,16 @@ packages:
     version: 2.0.4
     dev: false
 
+  registry.npmmirror.com/ip-address@9.0.5:
+    resolution: {integrity: sha512-zHtQzGojZXTwZTHQqra+ETKd4Sn3vgi7uBmlPoXVWZqYvuKmtI0l/VZTjqGmJY9x88GGOaZ9+G9ES8hC4T4X8g==, registry: http://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/ip-address/-/ip-address-9.0.5.tgz}
+    name: ip-address
+    version: 9.0.5
+    engines: {node: '>= 12'}
+    dependencies:
+      jsbn: registry.npmmirror.com/jsbn@1.1.0
+      sprintf-js: registry.npmmirror.com/sprintf-js@1.1.3
+    dev: false
+
   registry.npmmirror.com/is-binary-path@2.1.0:
     resolution: {integrity: sha512-ZMERYes6pDydyuGidse7OsHxtbI7WVeUEozgR/g7rd0xUimYNlvZRE/K2MgZTjWy725IfelLeVcEM97mmtRGXw==, registry: http://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/is-binary-path/-/is-binary-path-2.1.0.tgz}
     name: is-binary-path
@@ -804,6 +817,12 @@ packages:
     version: 7.0.0
     engines: {node: '>=0.12.0'}
     dev: true
+
+  registry.npmmirror.com/jsbn@1.1.0:
+    resolution: {integrity: sha512-4bYVV3aAMtDTTu4+xsDYa6sy9GyJ69/amsu9sYF2zqjiEoZA5xJi3BrfX3uY+/IekIu7MwdObdbDWpoZdBv3/A==, registry: http://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/jsbn/-/jsbn-1.1.0.tgz}
+    name: jsbn
+    version: 1.1.0
+    dev: false
 
   registry.npmmirror.com/keygrip@1.1.0:
     resolution: {integrity: sha512-iYSchDJ+liQ8iwbSI2QqsQOvqv58eJCEanyJPJi+Khyu8smkcKSFUCbPwzFcL7YVtZ6eONjqRX/38caJ7QjRAQ==, registry: http://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/keygrip/-/keygrip-1.1.0.tgz}
@@ -1138,10 +1157,33 @@ packages:
       semver: registry.npmmirror.com/semver@7.5.4
     dev: true
 
+  registry.npmmirror.com/smart-buffer@4.2.0:
+    resolution: {integrity: sha512-94hK0Hh8rPqQl2xXc3HsaBoOXKV20MToPkcXvwbISWLEs+64sBq5kFgn2kJDHb1Pry9yrP0dxrCI9RRci7RXKg==, registry: http://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/smart-buffer/-/smart-buffer-4.2.0.tgz}
+    name: smart-buffer
+    version: 4.2.0
+    engines: {node: '>= 6.0.0', npm: '>= 3.0.0'}
+    dev: false
+
+  registry.npmmirror.com/socks@2.8.3:
+    resolution: {integrity: sha512-l5x7VUUWbjVFbafGLxPWkYsHIhEvmF85tbIeFZWc8ZPtoMyybuEhL7Jye/ooC4/d48FgOjSJXgsF/AJPYCW8Zw==, registry: http://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/socks/-/socks-2.8.3.tgz}
+    name: socks
+    version: 2.8.3
+    engines: {node: '>= 10.0.0', npm: '>= 3.0.0'}
+    dependencies:
+      ip-address: registry.npmmirror.com/ip-address@9.0.5
+      smart-buffer: registry.npmmirror.com/smart-buffer@4.2.0
+    dev: false
+
   registry.npmmirror.com/sprintf-js@1.0.3:
     resolution: {integrity: sha512-D9cPgkvLlV3t3IzL0D0YLvGA9Ahk4PcvVwUbN0dSGr1aP0Nrt4AEnTUbuGvquEC0mA64Gqt1fzirlRs5ibXx8g==, registry: http://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/sprintf-js/-/sprintf-js-1.0.3.tgz}
     name: sprintf-js
     version: 1.0.3
+    dev: false
+
+  registry.npmmirror.com/sprintf-js@1.1.3:
+    resolution: {integrity: sha512-Oo+0REFV59/rz3gfJNKQiBlwfHaSESl1pcGyABQsnnIfWOFt6JNj5gCog2U6MLZ//IGYD+nA8nI+mTShREReaA==, registry: http://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/sprintf-js/-/sprintf-js-1.1.3.tgz}
+    name: sprintf-js
+    version: 1.1.3
     dev: false
 
   registry.npmmirror.com/statuses@1.5.0:

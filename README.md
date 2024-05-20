@@ -212,3 +212,29 @@ curl '127.0.0.1:9876/stats' \
     }
 }
 ```
+
+## UDP Test(NTP via Proxy)
+
+`port`: proxy port
+
+`ntp`: ntp server(default: `time.apple.com`)
+
+`timeout`: timeout(default: `3000`ms)
+
+```console
+curl '127.0.0.1:9876/udp' \
+--header 'Content-Type: application/json' \
+--data '{
+    "port": 35955,
+    "ntp": "time.apple.com",
+    "timeout": 2000
+}'
+```
+
+### Response
+
+```JSON
+{
+    "data": "ok"
+}
+```

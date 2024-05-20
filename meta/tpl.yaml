@@ -8,11 +8,14 @@ inbound-mptcp: true
 log-level: info
 ipv6: true
 tcp-concurrent: true
+global-client-fingerprint: chrome
 profile:
   store-selected: false
   store-fake-ip: false
+
 dns:
   enable: true
+  cache-algorithm: arc
   prefer-h3: false
   ipv6: true
   use-hosts: true
