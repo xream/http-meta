@@ -8,6 +8,16 @@
 
 📢 频道 [折腾啥(频道)](https://t.me/zhetengsha)
 
+## Ecosystem
+
+以下版本均已内置 `http-meta`:
+
+[Sub-Store Android 模块](https://t.me/zhetengsha/1008)
+
+[Sub-Store Docker 版](https://hub.docker.com/r/xream/sub-store)
+
+[Sub-Store Hugging Face 版](https://www.notion.so/xream/Sub-Store-Hugging-Face-1787ae7c38df482eaeccea4e0f1d3a8d)
+
 ## Usage
 
 > ⚠️ If a proxy is already running on the device running `http-meta`, you may need to exclude the `http-meta` process.
