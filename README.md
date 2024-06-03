@@ -18,6 +18,8 @@
 
 [Sub-Store Hugging Face 版](https://www.notion.so/xream/Sub-Store-Hugging-Face-1787ae7c38df482eaeccea4e0f1d3a8d)
 
+[GUI.for.Cores 维护的插件](https://t.me/GUI_for_Cores_Channel/184)
+
 ## Usage
 
 > ⚠️ If a proxy is already running on the device running `http-meta`, you may need to exclude the `http-meta` process.
