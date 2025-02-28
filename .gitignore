@@ -109,3 +109,6 @@ meta/http-meta.config.yaml
 meta/config.yaml
 meta/cache.db
 meta/http-meta
+meta/http-meta.json
+meta/http-meta.*.yaml
+meta/http-meta.*.log

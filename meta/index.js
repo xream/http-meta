@@ -17,12 +17,31 @@ const folder = path.resolve(process.env.META_FOLDER || __dirname)
 const bin = path.join(folder, 'http-meta')
 const tpl = path.join(folder, 'tpl.yaml')
 
+const maxAvailablePort = process.env.META_MAX_AVAILABLE_PORT || 65534
+const minAvailablePort = process.env.META_MIN_AVAILABLE_PORT || 1
+
+console.log(`[META AVAILABLE PORT] ${minAvailablePort}-${maxAvailablePort}`)
+
+let disableAutoClean = process.env.META_DISABLE_AUTO_CLEAN
+try {
+  disableAutoClean = JSON.parse(disableAutoClean)
+} catch (e) {}
+console.log(`[DISABLE AUTO CLEAN] ${disableAutoClean ? 'true' : 'false'}`)
 try {
   fs.accessSync(folder)
   console.log(`[META FOLDER] ${folder}`)
 } catch (e) {
   console.log(
     `Meta folder "${folder}" does not exist. This can be customized using the environment variable "META_FOLDER"`
+  )
+  process.exit(1)
+}
+try {
+  fs.accessSync(tempFolder)
+  console.log(`[META TEMP FOLDER] ${tempFolder}`)
+} catch (e) {
+  console.log(
+    `Meta temp folder "${tempFolder}" does not exist. This can be customized using the environment variable "META_TEMP_FOLDER"`
   )
   process.exit(1)
 }
@@ -96,10 +115,10 @@ async function stop(_pid) {
       const log = _.get(processes, `${i}.log`)
 
       if (config) {
-        safeExecSync(`rm -f ${config}`)
+        disableAutoClean || safeExecSync(`rm -f ${config}`)
       }
       if (log) {
-        safeExecSync(`rm -f ${log}`)
+        disableAutoClean || safeExecSync(`rm -f ${log}`)
       }
 
       safeExecSync(`kill -9 ${i}`)
@@ -119,8 +138,8 @@ async function stop(_pid) {
       }
     })
   } else {
-    safeExecSync(`rm -f ${path.join(tempFolder, `http-meta.*.log`)}`)
-    safeExecSync(`rm -f ${path.join(tempFolder, `http-meta.*.yaml`)}`)
+    disableAutoClean || safeExecSync(`rm -f ${path.join(tempFolder, `http-meta.*.log`)}`)
+    disableAutoClean || safeExecSync(`rm -f ${path.join(tempFolder, `http-meta.*.yaml`)}`)
     safeExecSync(`pkill http-meta`)
     pid = await getPID()
     if (!_.isEmpty(pid)) {
@@ -173,7 +192,7 @@ async function genConfig(input, config) {
     return ports.concat(process.ports)
   }, [])
 
-  const ports = await findAvailablePorts(65535, 1, proxies.length, processesPorts)
+  const ports = await findAvailablePorts(maxAvailablePort, minAvailablePort, proxies.length, processesPorts)
 
   const yaml = YAML.parse(fs.readFileSync(tpl, 'utf8'))
 

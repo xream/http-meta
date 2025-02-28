@@ -23,10 +23,19 @@ dns:
   # enhanced-mode: redir-host
   fake-ip-range: 28.0.0.1/8 # fake-ip 池设置
   default-nameserver:
-    ["https://223.6.6.6/dns-query", "https://120.53.53.53/dns-query"]
+    ["180.76.76.76", "52.80.52.52", "119.28.28.28", "223.6.6.6"]
   proxy-server-nameserver:
-    ["https://223.6.6.6/dns-query", "https://120.53.53.53/dns-query"]
-  nameserver: ["https://223.6.6.6/dns-query", "https://120.53.53.53/dns-query"]
+    [
+      "https://doh.pub/dns-query",
+      "https://dns.alidns.com/dns-query",
+      "https://doh-pure.onedns.net/dns-query",
+    ]
+  nameserver:
+    [
+      "https://doh.pub/dns-query",
+      "https://dns.alidns.com/dns-query",
+      "https://doh-pure.onedns.net/dns-query",
+    ]
 rules:
   - "MATCH,proxy"
   - "MATCH,REJECT"
