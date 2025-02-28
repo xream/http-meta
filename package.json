@@ -14,7 +14,7 @@
 		"nodemon": "^3.0.2"
 	},
 	"name": "http-meta",
-	"version": "1.0.2",
+	"version": "1.0.4",
 	"main": "index.js",
 	"scripts": {
 		"bundle": "node bundle.js",

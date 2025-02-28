@@ -16,7 +16,7 @@
 
 [Sub-Store Docker 版](https://hub.docker.com/r/xream/sub-store)
 
-[Sub-Store Hugging Face 版](https://www.notion.so/xream/Sub-Store-Hugging-Face-1787ae7c38df482eaeccea4e0f1d3a8d)
+~~[Sub-Store Hugging Face 版](https://www.notion.so/xream/Sub-Store-Hugging-Face-1787ae7c38df482eaeccea4e0f1d3a8d)~~
 
 [GUI.for.Cores 维护的插件](https://t.me/GUI_for_Cores_Channel/184)
 
@@ -67,6 +67,18 @@ Download [Meta](https://github.com/MetaCubeX/mihomo/releases), rename it to `htt
 Set the `AUTHORIZATION` environment variable to enable authorization.
 
 Add the `Authorization` header to the request.
+
+## Available Port
+
+Environment variables `META_MAX_AVAILABLE_PORT` and `META_MIN_AVAILABLE_PORT` can be set to customize the available port range.
+
+## Disable Auto Clean & Set Custom Temp Folder
+
+Environment variable `META_DISABLE_AUTO_CLEAN` can be set to `true` to disable the auto clean feature.
+
+Environment variable `META_TEMP_FOLDER` can be set to customize the temp folder.
+
+This is helpful when you need to keep logs and configuration files in a temporary folder for debugging purposes.
 
 ## Test
 
