@@ -18,6 +18,9 @@ const bin = path.join(folder, 'http-meta')
 const tpl = path.join(folder, 'tpl.yaml')
 
 let maxAvailablePort = parseInt(process.env.META_MAX_AVAILABLE_PORT)
+// 65535 is available
+// fixed: https://github.com/MetaCubeX/mihomo/commit/05e8f13a8d65e287a7c050219342950dd8e015b4
+// We're not short of one port. Let's leave it as it is for now.
 maxAvailablePort =
   !isNaN(maxAvailablePort) && maxAvailablePort >= 1 && maxAvailablePort <= 65534 ? maxAvailablePort : 65534
 
