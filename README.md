@@ -80,6 +80,10 @@ Environment variable `META_TEMP_FOLDER` can be set to customize the temp folder.
 
 This is helpful when you need to keep logs and configuration files in a temporary folder for debugging purposes.
 
+## Body JSON Limit
+
+Environment variable `BODY_JSON_LIMIT` can be set to customize the body json limit. Defaults to `1mb`.
+
 ## Test
 
 ```console

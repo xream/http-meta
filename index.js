@@ -12,7 +12,7 @@ const udp = require('./utils/udp')
 const app = new Koa()
 const router = new Router()
 
-app.use(bodyParser())
+app.use(bodyParser({ jsonLimit: process.env.BODY_JSON_LIMIT || '1mb' }))
 if (AUTHORIZATION) {
   console.log(`Authorization Enabled`)
   app.use(async (ctx, next) => {
