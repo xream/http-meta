@@ -12,7 +12,11 @@ const udp = require('./utils/udp')
 const app = new Koa()
 const router = new Router()
 
-app.use(bodyParser({ jsonLimit: process.env.BODY_JSON_LIMIT || '1mb' }))
+const jsonLimit = process.env.BODY_JSON_LIMIT || '1mb'
+
+console.log(`\n[HTTP SERVER] body JSON limit: ${jsonLimit}`)
+
+app.use(bodyParser({ jsonLimit }))
 if (AUTHORIZATION) {
   console.log(`Authorization Enabled`)
   app.use(async (ctx, next) => {
@@ -84,6 +88,6 @@ app.use(router.routes()).use(router.allowedMethods())
 
 const listener = app.listen(PORT, HOST, async ctx => {
   const { address, port } = listener.address()
-  console.log(`[HTTP SERVER] listening on port ${address}:${port}\n`)
+  console.log(`[HTTP SERVER] listening on ${address}:${port}\n`)
   await meta.startCheck()
 })
