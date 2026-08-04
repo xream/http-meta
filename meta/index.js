@@ -214,7 +214,9 @@ function isZombiePID(pid) {
   return !!stat && stat.startsWith('Z')
 }
 async function genConfig(input, config) {
-  let proxies = _.get(input, 'proxies')
+  // input can be an object, or a full mihomo config YAML string
+  let cfg = input
+  let proxies = _.get(cfg, 'proxies')
   if (!_.isArray(proxies) || _.isEmpty(proxies)) {
     try {
       proxies = _.get(YAML.parse(proxies), 'proxies')
@@ -222,7 +224,11 @@ async function genConfig(input, config) {
   }
   if (!_.isArray(proxies) || _.isEmpty(proxies)) {
     try {
-      proxies = _.get(YAML.parse(input), 'proxies')
+      const parsed = YAML.parse(cfg)
+      if (parsed && typeof parsed === 'object') {
+        proxies = _.get(parsed, 'proxies')
+        if (_.isArray(proxies) && !_.isEmpty(proxies)) cfg = parsed
+      }
     } catch (e) {}
   }
   if (!_.isArray(proxies) || _.isEmpty(proxies)) {
@@ -236,6 +242,14 @@ async function genConfig(input, config) {
   const ports = await findAvailablePorts(maxAvailablePort, minAvailablePort, proxies.length, processesPorts)
 
   const yaml = YAML.parse(fs.readFileSync(tpl, 'utf8'))
+
+  // optionally merge dns / hosts from the request body, so the test core uses the same
+  // DNS resolution / hosts overrides as the real client (e.g. a Sub-Store script can send
+  // the subscription's dns + hosts sections to /start)
+  if (cfg && typeof cfg === 'object') {
+    if (_.isPlainObject(cfg.dns)) yaml.dns = cfg.dns
+    if (_.isPlainObject(cfg.hosts)) yaml.hosts = cfg.hosts
+  }
 
   // yaml['bind-address'] = `0.0.0.0`
   // yaml['external-controller'] = `${yaml['bind-address']}:${port}`
