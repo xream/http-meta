@@ -42,6 +42,12 @@ Download [tpl.yaml](https://github.com/xream/http-meta/releases/latest/download/
 
 `META_TEMP_FOLDER=/data/http-meta META_FOLDER=/data/http-meta/meta HOST=127.0.0.1 PORT=9876 node http-meta.bundle.js`
 
+### Windows
+
+Windows does not need `chmod`, `rm`, `kill`, `pkill`, `pgrep`, or `ps` commands. Put `http-meta.exe` or `mihomo.exe` in `META_FOLDER`; both names are detected automatically. Set `META_BINARY_PATH` when the executable is elsewhere or uses another name.
+
+Process lifecycle and file cleanup use Node.js APIs. `/start`, `/stop`, `/restart`, `/test`, and `/stats` keep the same HTTP request and response fields on every platform. When a platform cannot provide process resource usage, `/stats` returns `0MB` and `0%` while preserving the response shape.
+
 ## The Hard Way
 
 `cd /data`
@@ -83,6 +89,45 @@ This is helpful when you need to keep logs and configuration files in a temporar
 ## Body JSON Limit
 
 Environment variable `BODY_JSON_LIMIT` can be set to customize the body json limit. Defaults to `1mb`.
+
+## Embedded Runtime
+
+Applications embedding libnode and libmihomo should load and manage both libraries themselves. http-meta does not create, initialize, or stop libnode; the application starts its Node.js runtime and executes `http-meta.embedded.bundle.js` inside it. The embedded bundle does not load `child_process` or discover native libraries. It accepts an application-provided bridge for mihomo and continues to provide the same HTTP API:
+
+```js
+const { createEmbeddedHttpMeta } = require('./http-meta.embedded.bundle.js')
+
+const service = createEmbeddedHttpMeta({
+  folder: '/app/http-meta/meta',
+  tempFolder: '/app/http-meta/tmp',
+  bridge: {
+    async startMihomo(configText, { config, log, input }) {
+      return appBridge.startMihomo(configText)
+    },
+
+    async stopMihomo(id) {
+      await appBridge.stopMihomo(id)
+    },
+
+    async isMihomoActive(id) {
+      return appBridge.isMihomoActive(id)
+    },
+
+    // Optional. Values are numbers, in bytes and percent.
+    async getMihomoStats(id) {
+      return appBridge.getMihomoStats(id)
+    },
+  },
+})
+
+service.listen({ host: '127.0.0.1', port: 9876 })
+```
+
+The application owns libnode and libmihomo initialization, threading, foreground/background handling, and final shutdown cleanup. Calling `service.close()` stops the HTTP listener and timeout checker but deliberately does not terminate native mihomo instances; the application remains their lifecycle owner.
+
+The value returned by `startMihomo()` is private to the bridge and may be an opaque string. HTTP responses still use a numeric `pid`, which http-meta maps back to the bridge ID for `/stop` and `/stats`. The bridge should support concurrent instances when callers use concurrent `/start` requests, or reject unsupported starts with a clear error.
+
+Desktop and Docker deployments continue to use `http-meta.bundle.js`. Their executable runtime returns the real operating-system PID and preserves the existing HTTP and environment-variable contracts. Linux discovers legacy unrecorded processes through `/proc`; macOS uses `pgrep` and `ps` only as optional compatibility helpers.
 
 ## Test
 

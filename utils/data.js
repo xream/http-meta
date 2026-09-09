@@ -1,27 +1,28 @@
 const fs = require('fs')
-const os = require('os')
 const path = require('path')
 
-const folder = path.resolve(process.env.META_TEMP_FOLDER || os.tmpdir())
-const dataFile = path.join(folder, 'http-meta.json')
+function createDataFile(folder, fileSystem = fs) {
+  const file = path.join(folder, 'http-meta.json')
+  console.log(`[DATA FILE] "${file}"`)
 
-console.log(`[DATA FILE] "${dataFile}"`)
+  return {
+    read() {
+      try {
+        return JSON.parse(fileSystem.readFileSync(file, 'utf8'))
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error
+        const data = { instances: {} }
+        this.write(data)
+        return data
+      }
+    },
+
+    write(data) {
+      fileSystem.writeFileSync(file, JSON.stringify(data), 'utf8')
+    },
+  }
+}
 
 module.exports = {
-  read,
-  write,
-}
-function read() {
-  try {
-    fs.accessSync(dataFile)
-  } catch (e) {
-    write({ processes: {} })
-  }
-  const jsonData = fs.readFileSync(dataFile, 'utf8')
-  return JSON.parse(jsonData)
-}
-
-function write(data) {
-  const jsonData = JSON.stringify(data)
-  fs.writeFileSync(dataFile, jsonData, 'utf8')
+  createDataFile,
 }

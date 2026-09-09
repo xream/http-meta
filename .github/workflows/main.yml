@@ -45,3 +45,5 @@ jobs:
             meta/tpl.yaml
             dist/http-meta.bundle.js
             dist/http-meta.bundle.js.map
+            dist/http-meta.embedded.bundle.js
+            dist/http-meta.embedded.bundle.js.map
