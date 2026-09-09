@@ -68,6 +68,9 @@ function createExecutableRuntime(options = {}) {
     async terminate(id) {
       const pid = normalizePID(id)
       if (exited.has(pid)) return
+      if (!(await this.canAutoTerminate(pid))) {
+        throw new Error(`Cannot automatically terminate PID: ${pid}`)
+      }
       try {
         killProcess(pid, 'SIGKILL')
       } catch (error) {
@@ -99,7 +102,7 @@ function createExecutableRuntime(options = {}) {
       const pid = normalizePID(id)
       if (exited.has(pid)) return false
       if (tracked.has(pid)) return true
-      if (platform === 'linux') return isLinuxExecutable(fileSystem, pid, executablePath)
+      if (platform === 'linux' || platform === 'android') return isLinuxExecutable(fileSystem, pid, executablePath)
       if (platform === 'darwin') {
         const pids = await discoverDarwinProcesses(options.execFile || childProcess.execFile, processName)
         return pids.includes(pid)
@@ -109,13 +112,13 @@ function createExecutableRuntime(options = {}) {
 
     async readStats(id) {
       const pid = normalizePID(id)
-      if (platform === 'linux') return getLinuxStats(fileSystem, pid)
+      if (platform === 'linux' || platform === 'android') return getLinuxStats(fileSystem, pid)
       if (platform === 'darwin') return getDarwinStats(options.execFile || childProcess.execFile, pid)
       return {}
     },
 
     async discover() {
-      if (platform === 'linux') return discoverLinuxProcesses(fileSystem, processName)
+      if (platform === 'linux' || platform === 'android') return discoverLinuxProcesses(fileSystem, processName)
       if (platform === 'darwin') return discoverDarwinProcesses(options.execFile || childProcess.execFile, processName)
       return []
     },

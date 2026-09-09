@@ -13,9 +13,23 @@ function createHttpMetaServer(options) {
   const jsonLimit = env.BODY_JSON_LIMIT || '1mb'
   const authorization = env.AUTHORIZATION || ''
   let listener
+  let activeHandlers = 0
+  let resolveHandlersDrained
 
   console.log(`\n[HTTP SERVER] body JSON limit: ${jsonLimit}`)
   app.use(bodyParser({ jsonLimit }))
+  app.use(async (ctx, next) => {
+    activeHandlers += 1
+    try {
+      return await next()
+    } finally {
+      activeHandlers -= 1
+      if (activeHandlers === 0 && resolveHandlersDrained) {
+        resolveHandlersDrained()
+        resolveHandlersDrained = undefined
+      }
+    }
+  })
   if (authorization) {
     console.log('Authorization Enabled')
     app.use(async (ctx, next) => {
@@ -76,13 +90,18 @@ function createHttpMetaServer(options) {
     close(callback) {
       const current = listener
       listener = undefined
-      const closePromise = Promise.resolve(meta.stopCheck()).then(
-        () =>
-          new Promise((resolve, reject) => {
-            if (!current) return resolve()
+      const closePromise = !current
+        ? Promise.resolve(meta.stopCheck())
+        : new Promise((resolve, reject) => {
             current.close(error => (error ? reject(error) : resolve()))
           })
-      )
+            .then(() => {
+              if (activeHandlers === 0) return undefined
+              return new Promise(resolve => {
+                resolveHandlersDrained = resolve
+              })
+            })
+            .then(() => meta.stopCheck())
       if (callback) closePromise.then(() => callback(), callback)
       return closePromise
     },

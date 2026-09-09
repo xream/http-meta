@@ -58,6 +58,12 @@ test('executable runtime uses process.kill-compatible hooks for liveness and sto
     fs: {
       accessSync() {},
       chmodSync() {},
+      readlinkSync() {
+        return '/opt/http-meta'
+      },
+      realpathSync(file) {
+        return file
+      },
       statSync() {
         return { mode: 0o100644 }
       },
@@ -75,6 +81,28 @@ test('executable runtime uses process.kill-compatible hooks for liveness and sto
     [123, 0],
     [123, 'SIGKILL'],
   ])
+})
+
+test('executable runtime refuses to terminate an unowned PID', async () => {
+  const signals = []
+  const runtime = createExecutableRuntime({
+    executablePath: '/opt/mihomo',
+    fs: {
+      readlinkSync() {
+        return '/usr/bin/unrelated'
+      },
+      realpathSync(file) {
+        return file
+      },
+    },
+    killProcess(pid, signal) {
+      signals.push([pid, signal])
+    },
+    platform: 'linux',
+  })
+
+  await assert.rejects(runtime.terminate(123), /Cannot automatically terminate PID: 123/)
+  assert.deepEqual(signals, [])
 })
 
 test('Windows stats do not invoke a system command', async () => {
@@ -123,6 +151,35 @@ test('automatic termination verifies an untracked Linux process by executable pa
   assert.equal(await runtime.canAutoTerminate(123), true)
   runningExecutable = '/usr/bin/unrelated'
   assert.equal(await runtime.canAutoTerminate(123), false)
+})
+
+test('Android uses Linux /proc helpers for ownership, stats, and discovery', async () => {
+  const runtime = createExecutableRuntime({
+    executablePath: '/opt/mihomo',
+    fs: {
+      readlinkSync() {
+        return '/opt/mihomo'
+      },
+      realpathSync(file) {
+        return file
+      },
+      readdirSync() {
+        return [{ name: '123', isDirectory: () => true }]
+      },
+      readFileSync(file) {
+        if (file === '/proc/123/comm') return 'mihomo\n'
+        if (file === '/proc/123/status') return 'State:\tS (sleeping)\nVmRSS:\t2 kB\n'
+        if (file === '/proc/123/stat') return '123 (mihomo) S 0 0 0 0 0 0 0 0 0 0 0 0 0\n'
+        if (file === '/proc/stat') return 'cpu 100 0 0 0\n'
+        throw new Error(`Unexpected file: ${file}`)
+      },
+    },
+    platform: 'android',
+  })
+
+  assert.equal(await runtime.canAutoTerminate(123), true)
+  assert.deepEqual(await runtime.discover(), [123])
+  assert.deepEqual(await runtime.readStats(123), { memoryBytes: 2048, cpuPercent: 0 })
 })
 
 test('automatic termination stays disabled when process identity cannot be verified', async () => {
