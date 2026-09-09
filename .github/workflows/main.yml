@@ -17,16 +17,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-        with:
-          ref: "main"
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: "20"
       - name: Install dependencies
         run: |
-          npm install -g pnpm
-          pnpm i --no-frozen-lockfile
+          npm install -g pnpm@8.15.9
+          pnpm i --frozen-lockfile
+      - name: Test
+        run: |
+          pnpm test
       - name: Bundle
         run: |
           pnpm run bundle
@@ -37,7 +38,7 @@ jobs:
           echo "release_tag=$HTTP_META_RELEASE" >> $GITHUB_OUTPUT
       - name: Release
         uses: softprops/action-gh-release@v1
-        if: ${{ success() }}
+        if: ${{ success() && github.event_name == 'push' }}
         with:
           tag_name: ${{ steps.tag.outputs.release_tag }}
           generate_release_notes: true
