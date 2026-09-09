@@ -184,6 +184,78 @@ test('server close waits for in-flight HTTP handlers before stopping checks', as
   assert.equal(stopChecks, 1)
 })
 
+test('concurrent server close calls wait for the same in-flight handler drain', async t => {
+  let releaseStart
+  let startEntered
+  let stopChecks = 0
+  const meta = {
+    getPID: async () => [],
+    getStats: async () => ({}),
+    restart: async () => ({}),
+    start: async () => {
+      startEntered()
+      await new Promise(resolve => {
+        releaseStart = resolve
+      })
+      return {}
+    },
+    startCheck() {},
+    stop: async () => ({}),
+    stopCheck() {
+      stopChecks += 1
+    },
+    test: async () => ({}),
+  }
+  const service = createHttpMetaServer({ env: {}, meta })
+  const listener = service.listen({ host: '127.0.0.1', port: 0 })
+  await new Promise(resolve => listener.once('listening', resolve))
+  t.after(() => service.close())
+
+  const request = fetch(`http://127.0.0.1:${listener.address().port}/start`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{}',
+  })
+  await new Promise(resolve => {
+    startEntered = resolve
+  })
+
+  const firstClose = service.close()
+  const secondClose = service.close()
+  await new Promise(resolve => setImmediate(resolve))
+  const stopChecksBeforeDrain = stopChecks
+
+  releaseStart()
+  await request
+  await Promise.all([firstClose, secondClose])
+  assert.strictEqual(secondClose, firstClose)
+  assert.equal(stopChecksBeforeDrain, 0)
+  assert.equal(stopChecks, 1)
+})
+
+test('server cannot listen while a close is still draining handlers', async t => {
+  let finishStop
+  const meta = {
+    getPID: async () => [],
+    getStats: async () => ({}),
+    restart: async () => ({}),
+    start: async () => ({}),
+    startCheck() {},
+    stop: async () => ({}),
+    stopCheck: () => new Promise(resolve => {
+      finishStop = resolve
+    }),
+    test: async () => ({}),
+  }
+  const service = createHttpMetaServer({ env: {}, meta })
+  const closing = service.close()
+  t.after(() => finishStop?.())
+
+  assert.throws(() => service.listen(), /HTTP server is closing/)
+  finishStop()
+  await closing
+})
+
 test('an immediate close prevents a pending listener from starting the timeout checker', async () => {
   let finishStop
   let starts = 0
@@ -202,24 +274,9 @@ test('an immediate close prevents a pending listener from starting the timeout c
     test: async () => ({}),
   }
   const service = createHttpMetaServer({ env: {}, meta })
-  let closeListener
-  let startListener
-  service.app.listen = (port, host, callback) => {
-    startListener = callback
-    return {
-      address() {
-        return { address: host, port }
-      },
-      close(callback) {
-        closeListener = callback
-      },
-    }
-  }
   service.listen({ host: '127.0.0.1', port: 0 })
   const closing = service.close()
 
-  startListener()
-  closeListener()
   await new Promise(resolve => setImmediate(resolve))
   assert.equal(starts, 0)
   finishStop()

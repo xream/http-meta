@@ -13,6 +13,7 @@ function createHttpMetaServer(options) {
   const jsonLimit = env.BODY_JSON_LIMIT || '1mb'
   const authorization = env.AUTHORIZATION || ''
   let listener
+  let closePromise
   let activeHandlers = 0
   let resolveHandlersDrained
 
@@ -76,6 +77,7 @@ function createHttpMetaServer(options) {
     app,
     meta,
     listen(listenOptions = {}) {
+      if (closePromise) throw new Error('HTTP server is closing')
       const port = listenOptions.port ?? env.PORT ?? 9876
       const host = listenOptions.host ?? env.HOST ?? '::'
       const current = app.listen(port, host, async () => {
@@ -88,20 +90,30 @@ function createHttpMetaServer(options) {
       return current
     },
     close(callback) {
-      const current = listener
-      listener = undefined
-      const closePromise = !current
-        ? Promise.resolve(meta.stopCheck())
-        : new Promise((resolve, reject) => {
-            current.close(error => (error ? reject(error) : resolve()))
-          })
-            .then(() => {
-              if (activeHandlers === 0) return undefined
-              return new Promise(resolve => {
-                resolveHandlersDrained = resolve
+      if (!closePromise) {
+        const current = listener
+        listener = undefined
+        closePromise = !current
+          ? Promise.resolve(meta.stopCheck())
+          : new Promise((resolve, reject) => {
+              current.close(error => {
+                if (!error || error.code === 'ERR_SERVER_NOT_RUNNING') return resolve()
+                reject(error)
               })
             })
-            .then(() => meta.stopCheck())
+              .then(() => {
+                if (activeHandlers === 0) return undefined
+                return new Promise(resolve => {
+                  resolveHandlersDrained = resolve
+                })
+              })
+              .then(() => meta.stopCheck())
+        const currentClose = closePromise
+        const clearClosePromise = () => {
+          if (closePromise === currentClose) closePromise = undefined
+        }
+        closePromise.then(clearClosePromise, clearClosePromise)
+      }
       if (callback) closePromise.then(() => callback(), callback)
       return closePromise
     },

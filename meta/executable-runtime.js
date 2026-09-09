@@ -22,8 +22,9 @@ function createExecutableRuntime(options = {}) {
   const platform = options.platform || process.platform
   const spawnProcess = options.spawnProcess || childProcess.spawn
   const killProcess = options.killProcess || process.kill.bind(process)
+  const execFile = options.execFile || childProcess.execFile
   const executablePath = options.executablePath
-  const processName = path.basename(executablePath)
+  const processName = (platform === 'win32' ? path.win32 : path).basename(executablePath)
   const tracked = new Set()
   const exited = new Set()
 
@@ -104,22 +105,23 @@ function createExecutableRuntime(options = {}) {
       if (tracked.has(pid)) return true
       if (platform === 'linux' || platform === 'android') return isLinuxExecutable(fileSystem, pid, executablePath)
       if (platform === 'darwin') {
-        const pids = await discoverDarwinProcesses(options.execFile || childProcess.execFile, processName)
+        const pids = await discoverDarwinProcesses(execFile, processName)
         return pids.includes(pid)
       }
+      if (platform === 'win32') return isWindowsExecutable(execFile, pid, processName)
       return false
     },
 
     async readStats(id) {
       const pid = normalizePID(id)
       if (platform === 'linux' || platform === 'android') return getLinuxStats(fileSystem, pid)
-      if (platform === 'darwin') return getDarwinStats(options.execFile || childProcess.execFile, pid)
+      if (platform === 'darwin') return getDarwinStats(execFile, pid)
       return {}
     },
 
     async discover() {
       if (platform === 'linux' || platform === 'android') return discoverLinuxProcesses(fileSystem, processName)
-      if (platform === 'darwin') return discoverDarwinProcesses(options.execFile || childProcess.execFile, processName)
+      if (platform === 'darwin') return discoverDarwinProcesses(execFile, processName)
       return []
     },
   }
@@ -167,6 +169,16 @@ function isLinuxExecutable(fileSystem, pid, executablePath) {
   } catch (error) {
     return false
   }
+}
+
+function isWindowsExecutable(execFile, pid, processName) {
+  return new Promise(resolve => {
+    execFile('tasklist', ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH'], (error, stdout) => {
+      if (error) return resolve(false)
+      const match = String(stdout).match(/^"([^"]*)"/m)
+      resolve(Boolean(match && match[1].toLowerCase() === processName.toLowerCase()))
+    })
+  })
 }
 
 async function getLinuxStats(fileSystem, pid) {

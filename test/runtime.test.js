@@ -185,12 +185,54 @@ test('Android uses Linux /proc helpers for ownership, stats, and discovery', asy
 test('automatic termination stays disabled when process identity cannot be verified', async () => {
   const runtime = createExecutableRuntime({
     executablePath: 'C:\\http-meta\\mihomo.exe',
+    execFile(command, args, callback) {
+      callback(Object.assign(new Error(`${command} failed`), { code: 'EACCES' }))
+    },
     fs: {},
     killProcess() {},
     platform: 'win32',
   })
 
   assert.equal(await runtime.canAutoTerminate(123), false)
+})
+
+test('missing Windows identity command never falls back to PID liveness', async () => {
+  const signals = []
+  const runtime = createExecutableRuntime({
+    executablePath: 'C:\\http-meta\\mihomo.exe',
+    execFile(command, args, callback) {
+      callback(Object.assign(new Error(`${command} missing`), { code: 'ENOENT' }))
+    },
+    killProcess(pid, signal) {
+      signals.push([pid, signal])
+    },
+    platform: 'win32',
+  })
+
+  await assert.rejects(runtime.terminate(123), /Cannot automatically terminate PID: 123/)
+  assert.deepEqual(signals, [])
+})
+
+test('Windows recovers and terminates an untracked process with a matching tasklist identity', async () => {
+  const calls = []
+  const runtime = createExecutableRuntime({
+    executablePath: 'C:\\http-meta\\mihomo.exe',
+    execFile(command, args, callback) {
+      calls.push([command, args])
+      callback(null, '"mihomo.exe","123","Console","1","10,000 K"\r\n')
+    },
+    killProcess(pid, signal) {
+      calls.push(['kill', pid, signal])
+    },
+    platform: 'win32',
+  })
+
+  await runtime.terminate(123)
+
+  assert.deepEqual(calls, [
+    ['tasklist', ['/FI', 'PID eq 123', '/FO', 'CSV', '/NH']],
+    ['kill', 123, 'SIGKILL'],
+  ])
 })
 
 test('an already executable file does not require chmod permission', () => {
