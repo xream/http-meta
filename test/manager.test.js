@@ -29,6 +29,22 @@ function fixture(t) {
   return { dataFile, tempFolder, tpl }
 }
 
+function captureInterval(t) {
+  const originalSetInterval = global.setInterval
+  const originalClearInterval = global.clearInterval
+  let runTick
+  global.setInterval = callback => {
+    runTick = callback
+    return { unref() {} }
+  }
+  global.clearInterval = () => {}
+  t.after(() => {
+    global.setInterval = originalSetInterval
+    global.clearInterval = originalClearInterval
+  })
+  return () => runTick()
+}
+
 test('manager maps an opaque runtime id to a numeric pid compatibility field', async t => {
   const files = fixture(t)
   const stopped = []
@@ -152,19 +168,7 @@ test('manager delegates stats to the runtime without requiring the process model
 
 test('stopCheck waits for an in-flight tick and prevents later runtime calls', async t => {
   const files = fixture(t)
-  const originalSetInterval = global.setInterval
-  const originalClearInterval = global.clearInterval
-  t.after(() => {
-    global.setInterval = originalSetInterval
-    global.clearInterval = originalClearInterval
-  })
-
-  let runTick
-  global.setInterval = callback => {
-    runTick = callback
-    return { unref() {} }
-  }
-  global.clearInterval = () => {}
+  const runTick = captureInterval(t)
 
   let releaseFirstCheck
   let firstCheckStarted
@@ -214,4 +218,44 @@ test('stopCheck waits for an in-flight tick and prevents later runtime calls', a
   releaseFirstCheck(true)
   await Promise.all([tick, stopping])
   assert.deepEqual(activeCalls, ['native-1'])
+})
+
+test('automatic timeout does not terminate an instance whose identity is unverified', async t => {
+  const files = fixture(t)
+  const runTick = captureInterval(t)
+  const terminated = []
+  const runtime = {
+    name: 'executable',
+    async launch() {
+      throw new Error('not used')
+    },
+    async terminate(id) {
+      terminated.push(id)
+    },
+    async isActive() {
+      return true
+    },
+    async canAutoTerminate() {
+      return false
+    },
+  }
+  files.dataFile.write({
+    instances: {
+      1001: { runtimeId: 1001, runtime: 'executable', startTime: 0, timeout: 1 },
+    },
+  })
+  const manager = createManager({
+    ...files,
+    activeRuntime: 'executable',
+    disableAutoClean: true,
+    findPorts: async () => [],
+    folder: files.tempFolder,
+    runtimes: [runtime],
+  })
+
+  manager.startCheck()
+  await runTick()
+  await manager.stopCheck()
+  assert.deepEqual(terminated, [])
+  assert.match(files.dataFile.value.instances['1001'].err.message, /identity could not be verified/)
 })

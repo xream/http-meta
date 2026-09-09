@@ -18,6 +18,9 @@ function validateRuntime(runtime) {
   if (runtime.discover !== undefined && typeof runtime.discover !== 'function') {
     throw new TypeError(`Mihomo runtime "${runtime.name}" discover must be a function`)
   }
+  if (runtime.canAutoTerminate !== undefined && typeof runtime.canAutoTerminate !== 'function') {
+    throw new TypeError(`Mihomo runtime "${runtime.name}" canAutoTerminate must be a function`)
+  }
   return runtime
 }
 

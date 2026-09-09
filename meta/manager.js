@@ -335,6 +335,16 @@ function createManager(options) {
             )}m`
           )
           try {
+            const runtime = runtimeFor(record)
+            if (runtime.canAutoTerminate && !(await runtime.canAutoTerminate(record.runtimeId, record))) {
+              if (isCancelled()) return
+              const message = 'Automatic stop skipped: process identity could not be verified'
+              if (_.get(record, 'err.message') !== message) {
+                record.err = { message }
+                changed = true
+              }
+              continue
+            }
             await stopInstances(pid, isCancelled)
           } catch (cause) {
             console.error(cause)

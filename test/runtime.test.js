@@ -104,6 +104,60 @@ test('missing macOS compatibility commands degrade without failing lifecycle sup
   assert.deepEqual(await runtime.readStats(42), {})
 })
 
+test('automatic termination verifies an untracked Linux process by executable path', async () => {
+  let runningExecutable = '/opt/mihomo'
+  const runtime = createExecutableRuntime({
+    executablePath: '/opt/mihomo',
+    fs: {
+      readlinkSync() {
+        return runningExecutable
+      },
+      realpathSync(file) {
+        return file
+      },
+    },
+    killProcess() {},
+    platform: 'linux',
+  })
+
+  assert.equal(await runtime.canAutoTerminate(123), true)
+  runningExecutable = '/usr/bin/unrelated'
+  assert.equal(await runtime.canAutoTerminate(123), false)
+})
+
+test('automatic termination stays disabled when process identity cannot be verified', async () => {
+  const runtime = createExecutableRuntime({
+    executablePath: 'C:\\http-meta\\mihomo.exe',
+    fs: {},
+    killProcess() {},
+    platform: 'win32',
+  })
+
+  assert.equal(await runtime.canAutoTerminate(123), false)
+})
+
+test('an already executable file does not require chmod permission', () => {
+  const calls = []
+  const runtime = createExecutableRuntime({
+    executablePath: '/opt/mihomo',
+    fs: {
+      accessSync(file, mode) {
+        calls.push(['access', file, mode])
+      },
+      chmodSync() {
+        throw Object.assign(new Error('read-only filesystem'), { code: 'EROFS' })
+      },
+      statSync() {
+        return { mode: 0o100700 }
+      },
+    },
+    platform: 'linux',
+  })
+
+  assert.doesNotThrow(() => runtime.verify())
+  assert.equal(calls.some(([name]) => name === 'chmod'), false)
+})
+
 test('runtime adapters use opaque instance ids and may omit stats', () => {
   const adapter = validateRuntime({
     name: 'libmihomo',

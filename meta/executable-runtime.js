@@ -23,6 +23,7 @@ function createExecutableRuntime(options = {}) {
   const spawnProcess = options.spawnProcess || childProcess.spawn
   const killProcess = options.killProcess || process.kill.bind(process)
   const executablePath = options.executablePath
+  const processName = path.basename(executablePath)
   const tracked = new Set()
   const exited = new Set()
 
@@ -94,6 +95,18 @@ function createExecutableRuntime(options = {}) {
       }
     },
 
+    async canAutoTerminate(id) {
+      const pid = normalizePID(id)
+      if (exited.has(pid)) return false
+      if (tracked.has(pid)) return true
+      if (platform === 'linux') return isLinuxExecutable(fileSystem, pid, executablePath)
+      if (platform === 'darwin') {
+        const pids = await discoverDarwinProcesses(options.execFile || childProcess.execFile, processName)
+        return pids.includes(pid)
+      }
+      return false
+    },
+
     async readStats(id) {
       const pid = normalizePID(id)
       if (platform === 'linux') return getLinuxStats(fileSystem, pid)
@@ -102,19 +115,26 @@ function createExecutableRuntime(options = {}) {
     },
 
     async discover() {
-      if (platform === 'linux') return discoverLinuxProcesses(fileSystem)
-      if (platform === 'darwin') return discoverDarwinProcesses(options.execFile || childProcess.execFile)
+      if (platform === 'linux') return discoverLinuxProcesses(fileSystem, processName)
+      if (platform === 'darwin') return discoverDarwinProcesses(options.execFile || childProcess.execFile, processName)
       return []
     },
   }
 }
 
 function prepareExecutable(fileSystem, executablePath, platform) {
-  fileSystem.accessSync(executablePath)
-  if (platform === 'win32') return
+  if (platform === 'win32') {
+    fileSystem.accessSync(executablePath)
+    return
+  }
+
+  try {
+    fileSystem.accessSync(executablePath, fs.constants.X_OK)
+    return
+  } catch (error) {}
 
   const mode = fileSystem.statSync(executablePath).mode
-  if ((mode & 0o111) !== 0o111) fileSystem.chmodSync(executablePath, mode | 0o111)
+  fileSystem.chmodSync(executablePath, mode | 0o111)
 }
 
 function normalizePID(id) {
@@ -131,6 +151,16 @@ function canAccess(fileSystem, file) {
   try {
     fileSystem.accessSync(file)
     return true
+  } catch (error) {
+    return false
+  }
+}
+
+function isLinuxExecutable(fileSystem, pid, executablePath) {
+  try {
+    const running = fileSystem.readlinkSync(`/proc/${pid}/exe`)
+    const resolve = fileSystem.realpathSync || path.resolve
+    return resolve(running) === resolve(executablePath)
   } catch (error) {
     return false
   }
@@ -179,7 +209,7 @@ function getDarwinStats(execFile, pid) {
   })
 }
 
-function discoverLinuxProcesses(fileSystem) {
+function discoverLinuxProcesses(fileSystem, processName = 'http-meta') {
   try {
     return fileSystem
       .readdirSync('/proc', { withFileTypes: true })
@@ -187,7 +217,7 @@ function discoverLinuxProcesses(fileSystem) {
       .flatMap(entry => {
         try {
           const name = fileSystem.readFileSync(`/proc/${entry.name}/comm`, 'utf8').trim()
-          if (name !== 'http-meta') return []
+          if (name !== processName) return []
           const status = fileSystem.readFileSync(`/proc/${entry.name}/status`, 'utf8')
           const state = status.match(/^State:\s+(\S)/m)
           return !state || state[1] !== 'Z' ? [Number(entry.name)] : []
@@ -200,9 +230,9 @@ function discoverLinuxProcesses(fileSystem) {
   }
 }
 
-function discoverDarwinProcesses(execFile) {
+function discoverDarwinProcesses(execFile, processName = 'http-meta') {
   return new Promise(resolve => {
-    execFile('pgrep', ['http-meta'], (error, stdout) => {
+    execFile('pgrep', ['-x', processName], (error, stdout) => {
       if (error) return resolve([])
       const pids = String(stdout)
         .split(/\s+/)
