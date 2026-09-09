@@ -149,3 +149,69 @@ test('manager delegates stats to the runtime without requiring the process model
     err: undefined,
   })
 })
+
+test('stopCheck waits for an in-flight tick and prevents later runtime calls', async t => {
+  const files = fixture(t)
+  const originalSetInterval = global.setInterval
+  const originalClearInterval = global.clearInterval
+  t.after(() => {
+    global.setInterval = originalSetInterval
+    global.clearInterval = originalClearInterval
+  })
+
+  let runTick
+  global.setInterval = callback => {
+    runTick = callback
+    return { unref() {} }
+  }
+  global.clearInterval = () => {}
+
+  let releaseFirstCheck
+  let firstCheckStarted
+  const firstCheck = new Promise(resolve => {
+    firstCheckStarted = resolve
+  })
+  const activeCalls = []
+  const runtime = {
+    name: 'host',
+    async launch() {
+      throw new Error('not used')
+    },
+    async terminate() {
+      throw new Error('timeout stop must not run after stopCheck')
+    },
+    async isActive(id) {
+      activeCalls.push(id)
+      if (id === 'native-1') {
+        firstCheckStarted()
+        return new Promise(resolve => {
+          releaseFirstCheck = resolve
+        })
+      }
+      return true
+    },
+  }
+  files.dataFile.write({
+    instances: {
+      1001: { runtimeId: 'native-1', runtime: 'host', startTime: Date.now(), timeout: 60000 },
+      1002: { runtimeId: 'native-2', runtime: 'host', startTime: Date.now(), timeout: 60000 },
+    },
+  })
+  const manager = createManager({
+    ...files,
+    activeRuntime: 'host',
+    disableAutoClean: true,
+    findPorts: async () => [],
+    folder: files.tempFolder,
+    runtimes: [runtime],
+  })
+
+  manager.startCheck()
+  const tick = runTick()
+  await firstCheck
+  const stopping = manager.stopCheck()
+  assert.equal(typeof stopping.then, 'function')
+  releaseFirstCheck(true)
+  await Promise.all([tick, stopping])
+  assert.deepEqual(activeCalls, ['native-1'])
+})

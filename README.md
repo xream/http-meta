@@ -123,7 +123,7 @@ const service = createEmbeddedHttpMeta({
 service.listen({ host: '127.0.0.1', port: 9876 })
 ```
 
-The application owns libnode and libmihomo initialization, threading, foreground/background handling, and final shutdown cleanup. Calling `service.close()` stops the HTTP listener and timeout checker but deliberately does not terminate native mihomo instances; the application remains their lifecycle owner.
+The application owns libnode and libmihomo initialization, threading, foreground/background handling, and final shutdown cleanup. Awaiting `service.close()` stops the HTTP listener and timeout checker, including any in-flight check, before it resolves. It deliberately does not terminate native mihomo instances; the application remains their lifecycle owner.
 
 The value returned by `startMihomo()` is private to the bridge and may be an opaque string. HTTP responses still use a numeric `pid`, which http-meta maps back to the bridge ID for `/stop` and `/stats`. The bridge should support concurrent instances when callers use concurrent `/start` requests, or reject unsupported starts with a clear error.
 

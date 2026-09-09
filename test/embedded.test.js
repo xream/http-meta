@@ -5,6 +5,8 @@ const os = require('node:os')
 const path = require('node:path')
 const test = require('node:test')
 
+const { createHttpMetaServer } = require('../server')
+
 test('embedded entry loads without child_process', t => {
   const originalLoad = Module._load
   t.after(() => {
@@ -107,4 +109,31 @@ test('embedded server preserves the numeric pid HTTP contract', async t => {
   })
   assert.equal(stopResponse.status, 200)
   assert.deepEqual(await stopResponse.json(), { pid: [] })
+})
+
+test('server close resolves only after the timeout checker has stopped', async () => {
+  let finishStop
+  const meta = {
+    getPID: async () => [],
+    getStats: async () => ({}),
+    restart: async () => ({}),
+    start: async () => ({}),
+    startCheck() {},
+    stop: async () => ({}),
+    stopCheck: () => new Promise(resolve => {
+      finishStop = resolve
+    }),
+    test: async () => ({}),
+  }
+  const service = createHttpMetaServer({ env: {}, meta })
+  let closed = false
+  const closing = service.close().then(() => {
+    closed = true
+  })
+
+  await Promise.resolve()
+  assert.equal(closed, false)
+  finishStop()
+  await closing
+  assert.equal(closed, true)
 })

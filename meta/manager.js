@@ -22,7 +22,8 @@ function createManager(options) {
   const runtimes = new Map()
   let activeRuntime = options.activeRuntime
   let checkTimer
-  let checkInFlight = false
+  let checkGeneration = 0
+  let checkTask
 
   for (const runtime of options.runtimes || []) registerRuntime(runtime)
   if (!activeRuntime && runtimes.size) activeRuntime = runtimes.keys().next().value
@@ -117,17 +118,24 @@ function createManager(options) {
     }
   }
 
-  async function stop(requested) {
+  function stop(requested) {
+    return stopInstances(requested)
+  }
+
+  async function stopInstances(requested, isCancelled) {
     await discoverIfNeeded(requested)
+    if (isCancelled && isCancelled()) return { instanceIds: [] }
     const selected = selectRecords(requested)
     const remaining = []
 
     for (const [key, record] of selected) {
+      if (isCancelled && isCancelled()) return { instanceIds: [] }
       const runtime = runtimeFor(record)
       const id = record.runtimeId
       const pid = Number(key)
       try {
         await runtime.terminate(id, record)
+        if (isCancelled && isCancelled()) return { instanceIds: [] }
       } catch (error) {
         if (await runtime.isActive(id, record)) {
           remaining.push(pid)
@@ -157,13 +165,17 @@ function createManager(options) {
     return { instanceIds: [] }
   }
 
-  async function list(requested) {
+  async function list(requested, isCancelled) {
     await discoverIfNeeded(requested)
+    if (isCancelled && isCancelled()) return []
     const selected = selectRecords(requested)
     const alive = []
     for (const [key, record] of selected) {
+      if (isCancelled && isCancelled()) break
       const runtime = runtimeFor(record)
-      if (await runtime.isActive(record.runtimeId, record)) alive.push(Number(key))
+      const active = await runtime.isActive(record.runtimeId, record)
+      if (isCancelled && isCancelled()) break
+      if (active) alive.push(Number(key))
     }
     return alive
   }
@@ -271,57 +283,70 @@ function createManager(options) {
 
   function startCheck() {
     if (checkTimer) return checkTimer
-    checkTimer = setInterval(async () => {
-      if (checkInFlight) return
-      checkInFlight = true
-      let changed = false
-      try {
-        const alive = new Set((await list()).map(String))
-        for (const [key, record] of Object.entries(instances)) {
-          const pid = Number(key)
-          if (!alive.has(String(pid))) {
-            console.log(`[INTERVAL] remove PID ${pid}`)
-            if (!disableAutoClean) {
-              removeFile(record.config)
-              removeFile(record.log)
-            }
-            delete instances[key]
-            changed = true
-            continue
-          }
-
-          const startTime = record.startTime
-          const timeout = record.timeout
-          if (Date.now() - startTime >= timeout) {
-            console.log(
-              `[INTERVAL] kill PID ${pid}, ${_.round((Date.now() - startTime) / 1000 / 60, 2)}m >= ${_.round(
-                timeout / 1000 / 60,
-                2
-              )}m`
-            )
-            try {
-              await stop(pid)
-            } catch (cause) {
-              console.error(cause)
-              record.err = serializeError(cause)
-              changed = true
-            }
-          }
-        }
-        if (changed) persist()
-      } catch (error) {
-        console.error('[INTERVAL] check failed', error)
-      } finally {
-        checkInFlight = false
-      }
+    const generation = ++checkGeneration
+    checkTimer = setInterval(() => {
+      if (checkTask) return
+      const task = runCheck(generation)
+      checkTask = task
+      task.finally(() => {
+        if (checkTask === task) checkTask = undefined
+      })
+      return task
     }, 60 * 1000)
     return checkTimer
   }
 
   function stopCheck() {
-    if (!checkTimer) return
-    clearInterval(checkTimer)
-    checkTimer = undefined
+    checkGeneration++
+    if (checkTimer) {
+      clearInterval(checkTimer)
+      checkTimer = undefined
+    }
+    return checkTask || Promise.resolve()
+  }
+
+  async function runCheck(generation) {
+    const isCancelled = () => generation !== checkGeneration
+    let changed = false
+    try {
+      const alive = new Set((await list(undefined, isCancelled)).map(String))
+      if (isCancelled()) return
+      for (const [key, record] of Object.entries(instances)) {
+        if (isCancelled()) return
+        const pid = Number(key)
+        if (!alive.has(String(pid))) {
+          console.log(`[INTERVAL] remove PID ${pid}`)
+          if (!disableAutoClean) {
+            removeFile(record.config)
+            removeFile(record.log)
+          }
+          delete instances[key]
+          changed = true
+          continue
+        }
+
+        const startTime = record.startTime
+        const timeout = record.timeout
+        if (Date.now() - startTime >= timeout) {
+          console.log(
+            `[INTERVAL] kill PID ${pid}, ${_.round((Date.now() - startTime) / 1000 / 60, 2)}m >= ${_.round(
+              timeout / 1000 / 60,
+              2
+            )}m`
+          )
+          try {
+            await stopInstances(pid, isCancelled)
+          } catch (cause) {
+            console.error(cause)
+            record.err = serializeError(cause)
+            changed = true
+          }
+        }
+      }
+      if (changed && !isCancelled()) persist()
+    } catch (error) {
+      console.error('[INTERVAL] check failed', error)
+    }
   }
 
   function selectRecords(requested) {

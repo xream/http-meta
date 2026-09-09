@@ -72,8 +72,17 @@ function createHttpMetaServer(options) {
       return listener
     },
     close(callback) {
-      meta.stopCheck()
-      if (listener) return listener.close(callback)
+      const closing = Promise.resolve(meta.stopCheck()).then(
+        () =>
+          new Promise((resolve, reject) => {
+            if (!listener) return resolve()
+            const current = listener
+            listener = undefined
+            current.close(error => (error ? reject(error) : resolve()))
+          })
+      )
+      if (callback) closing.then(() => callback(), callback)
+      return closing
     },
   }
 }
