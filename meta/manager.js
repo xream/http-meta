@@ -122,14 +122,17 @@ function createManager(options) {
     return stopInstances(requested)
   }
 
-  async function stopInstances(requested, isCancelled) {
-    await discoverIfNeeded(requested)
+  async function stopInstances(requested, isCancelled, selected) {
+    if (!selected) await discoverIfNeeded(requested)
     if (isCancelled && isCancelled()) return { instanceIds: [] }
-    const selected = selectRecords(requested)
+    selected = selected || selectRecords(requested)
     const remaining = []
 
     for (const [key, record] of selected) {
       if (isCancelled && isCancelled()) return { instanceIds: [] }
+      // A timer tick may have awaited host code while a new instance claimed the
+      // same compatibility PID. Never let the old snapshot operate on it.
+      if (instances[key] !== record) continue
       const runtime = runtimeFor(record)
       const id = record.runtimeId
       const pid = Number(key)
@@ -137,17 +140,24 @@ function createManager(options) {
         await runtime.terminate(id, record)
         if (isCancelled && isCancelled()) return { instanceIds: [] }
       } catch (error) {
-        if (await runtime.isActive(id, record)) {
+        if (isCancelled && isCancelled()) return { instanceIds: [] }
+        const active = await runtime.isActive(id, record)
+        if (isCancelled && isCancelled()) return { instanceIds: [] }
+        if (active) {
           remaining.push(pid)
           record.err = serializeError(error)
           continue
         }
       }
 
-      if (await waitForExit(runtime, id, record)) {
+      const stillActive = await waitForExit(runtime, id, record, 3000, 50, isCancelled)
+      if (isCancelled && isCancelled()) return { instanceIds: [] }
+      if (stillActive) {
         remaining.push(pid)
         continue
       }
+
+      if (instances[key] !== record) continue
 
       if (!disableAutoClean) {
         removeFile(record.config)
@@ -165,17 +175,13 @@ function createManager(options) {
     return { instanceIds: [] }
   }
 
-  async function list(requested, isCancelled) {
+  async function list(requested) {
     await discoverIfNeeded(requested)
-    if (isCancelled && isCancelled()) return []
     const selected = selectRecords(requested)
     const alive = []
     for (const [key, record] of selected) {
-      if (isCancelled && isCancelled()) break
       const runtime = runtimeFor(record)
-      const active = await runtime.isActive(record.runtimeId, record)
-      if (isCancelled && isCancelled()) break
-      if (active) alive.push(Number(key))
+      if (await runtime.isActive(record.runtimeId, record)) alive.push(Number(key))
     }
     return alive
   }
@@ -194,12 +200,15 @@ function createManager(options) {
     }
   }
 
-  async function waitForExit(runtime, id, record, timeout = 3000, interval = 50) {
+  async function waitForExit(runtime, id, record, timeout = 3000, interval = 50, isCancelled) {
     const startTime = Date.now()
     while (Date.now() - startTime < timeout) {
+      if (isCancelled && isCancelled()) return undefined
       if (!(await runtime.isActive(id, record))) return false
+      if (isCancelled && isCancelled()) return undefined
       await delay(interval)
     }
+    if (isCancelled && isCancelled()) return undefined
     return runtime.isActive(id, record)
   }
 
@@ -309,12 +318,23 @@ function createManager(options) {
     const isCancelled = () => generation !== checkGeneration
     let changed = false
     try {
-      const alive = new Set((await list(undefined, isCancelled)).map(String))
+      await discoverActiveRuntime()
       if (isCancelled()) return
-      for (const [key, record] of Object.entries(instances)) {
+      const checked = Object.entries(instances)
+      const alive = new Set()
+      for (const [key, record] of checked) {
         if (isCancelled()) return
+        const runtime = runtimeFor(record)
+        const active = await runtime.isActive(record.runtimeId, record)
+        if (isCancelled()) return
+        if (instances[key] === record && active) alive.add(key)
+      }
+
+      for (const [key, record] of checked) {
+        if (isCancelled()) return
+        if (instances[key] !== record) continue
         const pid = Number(key)
-        if (!alive.has(String(pid))) {
+        if (!alive.has(key)) {
           console.log(`[INTERVAL] remove PID ${pid}`)
           if (!disableAutoClean) {
             removeFile(record.config)
@@ -345,11 +365,14 @@ function createManager(options) {
               }
               continue
             }
-            await stopInstances(pid, isCancelled)
+            if (isCancelled() || instances[key] !== record) continue
+            await stopInstances(pid, isCancelled, [[key, record]])
           } catch (cause) {
             console.error(cause)
-            record.err = serializeError(cause)
-            changed = true
+            if (instances[key] === record) {
+              record.err = serializeError(cause)
+              changed = true
+            }
           }
         }
       }

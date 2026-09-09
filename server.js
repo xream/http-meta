@@ -64,25 +64,27 @@ function createHttpMetaServer(options) {
     listen(listenOptions = {}) {
       const port = listenOptions.port ?? env.PORT ?? 9876
       const host = listenOptions.host ?? env.HOST ?? '::'
-      listener = app.listen(port, host, async () => {
-        const { address, port: listeningPort } = listener.address()
+      const current = app.listen(port, host, async () => {
+        if (listener !== current) return
+        const { address, port: listeningPort } = current.address()
         console.log(`[HTTP SERVER] listening on ${address}:${listeningPort}\n`)
         meta.startCheck()
       })
-      return listener
+      listener = current
+      return current
     },
     close(callback) {
-      const closing = Promise.resolve(meta.stopCheck()).then(
+      const current = listener
+      listener = undefined
+      const closePromise = Promise.resolve(meta.stopCheck()).then(
         () =>
           new Promise((resolve, reject) => {
-            if (!listener) return resolve()
-            const current = listener
-            listener = undefined
+            if (!current) return resolve()
             current.close(error => (error ? reject(error) : resolve()))
           })
       )
-      if (callback) closing.then(() => callback(), callback)
-      return closing
+      if (callback) closePromise.then(() => callback(), callback)
+      return closePromise
     },
   }
 }

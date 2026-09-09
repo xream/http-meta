@@ -137,3 +137,30 @@ test('server close resolves only after the timeout checker has stopped', async (
   await closing
   assert.equal(closed, true)
 })
+
+test('an immediate close prevents a pending listener from starting the timeout checker', async () => {
+  let finishStop
+  let starts = 0
+  const meta = {
+    getPID: async () => [],
+    getStats: async () => ({}),
+    restart: async () => ({}),
+    start: async () => ({}),
+    startCheck() {
+      starts += 1
+    },
+    stop: async () => ({}),
+    stopCheck: () => new Promise(resolve => {
+      finishStop = resolve
+    }),
+    test: async () => ({}),
+  }
+  const service = createHttpMetaServer({ env: {}, meta })
+  service.listen({ host: '127.0.0.1', port: 0 })
+  const closing = service.close()
+
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(starts, 0)
+  finishStop()
+  await closing
+})

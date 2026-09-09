@@ -259,3 +259,164 @@ test('automatic timeout does not terminate an instance whose identity is unverif
   assert.deepEqual(terminated, [])
   assert.match(files.dataFile.value.instances['1001'].err.message, /identity could not be verified/)
 })
+
+test('automatic timeout keeps a replacement instance that claims the checked pid', async t => {
+  const files = fixture(t)
+  const runTick = captureInterval(t)
+  let releaseOwnershipCheck
+  let signalOwnershipCheck
+  const ownershipCheckStarted = new Promise(resolve => {
+    signalOwnershipCheck = resolve
+  })
+  const ownershipCheck = new Promise(resolve => {
+    releaseOwnershipCheck = resolve
+  })
+  let oldActive = true
+  const terminated = []
+  const runtime = {
+    name: 'host',
+    async launch() {
+      return { id: 'new-instance' }
+    },
+    async terminate(id) {
+      terminated.push(id)
+    },
+    async isActive(id) {
+      return id === 'old-instance' ? oldActive : true
+    },
+    async canAutoTerminate(id) {
+      assert.equal(id, 'old-instance')
+      signalOwnershipCheck()
+      return ownershipCheck
+    },
+  }
+  files.dataFile.write({
+    instances: {
+      1001: { runtimeId: 'old-instance', runtime: 'host', startTime: 0, timeout: 1 },
+    },
+  })
+  const manager = createManager({
+    ...files,
+    activeRuntime: 'host',
+    createPID: () => 1001,
+    disableAutoClean: true,
+    findPorts: async () => [12000],
+    folder: files.tempFolder,
+    runtimes: [runtime],
+  })
+
+  manager.startCheck()
+  const tick = runTick()
+  await ownershipCheckStarted
+  oldActive = false
+  await manager.stop(1001)
+  await manager.start({ proxies: [{ name: 'replacement' }] })
+  releaseOwnershipCheck(true)
+  await tick
+  await manager.stopCheck()
+
+  assert.deepEqual(terminated, ['old-instance'])
+  assert.equal(files.dataFile.value.instances['1001'].runtimeId, 'new-instance')
+})
+
+test('stopCheck cancels exit polling before another runtime call', async t => {
+  const files = fixture(t)
+  const runTick = captureInterval(t)
+  let releaseExitCheck
+  let signalExitCheck
+  const exitCheckStarted = new Promise(resolve => {
+    signalExitCheck = resolve
+  })
+  const exitCheck = new Promise(resolve => {
+    releaseExitCheck = resolve
+  })
+  const activeCalls = []
+  const runtime = {
+    name: 'host',
+    async launch() {
+      throw new Error('not used')
+    },
+    async terminate() {},
+    async isActive(id) {
+      activeCalls.push(id)
+      if (activeCalls.length === 2) {
+        signalExitCheck()
+        return exitCheck
+      }
+      return true
+    },
+  }
+  files.dataFile.write({
+    instances: {
+      1001: { runtimeId: 'native-1', runtime: 'host', startTime: 0, timeout: 1 },
+    },
+  })
+  const manager = createManager({
+    ...files,
+    activeRuntime: 'host',
+    disableAutoClean: true,
+    findPorts: async () => [],
+    folder: files.tempFolder,
+    runtimes: [runtime],
+  })
+
+  manager.startCheck()
+  const tick = runTick()
+  await exitCheckStarted
+  const stopping = manager.stopCheck()
+  releaseExitCheck(true)
+  await Promise.all([tick, stopping])
+
+  assert.deepEqual(activeCalls, ['native-1', 'native-1'])
+  assert.equal(files.dataFile.value.instances['1001'].runtimeId, 'native-1')
+})
+
+test('a check tick does not remove an instance that finishes starting mid-check', async t => {
+  const files = fixture(t)
+  const runTick = captureInterval(t)
+  let launchCount = 0
+  let releaseFirstCheck
+  let firstCheckStarted
+  const firstCheck = new Promise(resolve => {
+    firstCheckStarted = resolve
+  })
+  const runtime = {
+    name: 'host',
+    async launch() {
+      launchCount++
+      return { id: `native-${launchCount}` }
+    },
+    async terminate() {},
+    async isActive(id) {
+      if (id === 'native-1' && releaseFirstCheck === undefined) {
+        firstCheckStarted()
+        return new Promise(resolve => {
+          releaseFirstCheck = resolve
+        })
+      }
+      return true
+    },
+  }
+  let nextPID = 1000
+  const manager = createManager({
+    ...files,
+    activeRuntime: 'host',
+    createPID: () => ++nextPID,
+    disableAutoClean: true,
+    findPorts: async () => [12000 + launchCount],
+    folder: files.tempFolder,
+    runtimes: [runtime],
+  })
+
+  await manager.start({ proxies: [{ name: 'first' }] })
+  manager.startCheck()
+  const tick = runTick()
+  await firstCheck
+  const second = await manager.start({ proxies: [{ name: 'second' }] })
+  releaseFirstCheck(true)
+  await tick
+  await manager.stopCheck()
+
+  assert.equal(second.instanceId, 1002)
+  assert.deepEqual(Object.keys(files.dataFile.value.instances), ['1001', '1002'])
+})
